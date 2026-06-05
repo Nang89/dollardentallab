@@ -233,16 +233,31 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 @media (min-width: 900px) {
   .mobile-layout { display: none; }
   .desktop-layout { display: flex; height: 100vh; overflow: hidden; }
-  .sidebar { width: 220px; min-width: 220px; background: #1a3324; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; position: fixed; left: 0; top: 0; }
+  .sidebar { width: 220px; min-width: 220px; background: #1a3324; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; position: fixed; left: 0; top: 0; transition: width 0.2s ease; overflow: hidden; }
+  .sidebar.collapsed { width: 54px; min-width: 54px; }
+  .sidebar.collapsed .sidebar-eyebrow,
+  .sidebar.collapsed .sidebar-title,
+  .sidebar.collapsed .nav-label,
+  .sidebar.collapsed .sidebar-footer-text { display: none; }
+  .sidebar.collapsed .nav-item { justify-content: center; padding: 10px; }
+  .sidebar.collapsed .sidebar-logo { padding: 14px 10px; justify-content: center; }
+  .sidebar.collapsed .sidebar-bottom { padding: 10px; }
+  .desk-content { margin-left: 220px; transition: margin-left 0.2s ease; }
+  .desk-content.expanded { margin-left: 54px; }
   .sidebar-logo { padding: 22px 20px 20px; border-bottom: 1px solid var(--border); }
   .sidebar-eyebrow { font-family: 'DM Mono', monospace; font-size: 0.58rem; letter-spacing: 0.18em; color: #a3d9b8; text-transform: uppercase; margin-bottom: 8px; }
   .sidebar-title { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: #ffffff; line-height: 1.2; }
-  .sidebar-nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
+  .sidebar-nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 3px; flex: 1; overflow-y: auto; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; cursor: pointer; border: none; background: transparent; color: #a3d9b8; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; width: 100%; text-align: left; transition: background 0.15s, color 0.15s; }
   .nav-item:hover { background: #2e5c3e; color: #ffffff; }
   .nav-item.active { background: #2e5c3e; color: #7ecf9a; }
   .sidebar-footer { padding: 14px 20px; border-top: 1px solid #2e5c3e; font-size: 0.62rem; color: #a3d9b8; font-family: 'DM Mono', monospace; }
-  .desk-main { flex: 1; margin-left: 220px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  .sidebar-bottom { padding: 10px 10px 14px; border-top: 1px solid #2e5c3e; display: flex; flex-direction: column; gap: 6px; }
+  .sidebar-minimize-btn { background: none; border: none; color: #a3d9b8; cursor: pointer; padding: 8px; border-radius: 6px; display: flex; align-items: center; gap: 8px; width: 100%; font-size: 0.78rem; font-family: 'DM Sans', sans-serif; transition: background 0.15s; }
+  .sidebar-minimize-btn:hover { background: #2e5c3e; color: #fff; }
+  .sidebar-logout-btn { background: none; border: none; color: #f87171; cursor: pointer; padding: 8px; border-radius: 6px; display: flex; align-items: center; gap: 8px; width: 100%; font-size: 0.78rem; font-family: 'DM Sans', sans-serif; transition: background 0.15s; }
+  .sidebar-logout-btn:hover { background: #3d1515; color: #fca5a5; }
+  .desk-main { flex: 1; margin-left: 220px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: margin-left 0.2s ease; }
   .desk-topbar { background: #1a3324; border-bottom: 1px solid var(--border); padding: 14px 26px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
   .desk-topbar-title { font-size: 1rem; font-weight: 500; color: #ffffff; }
   .desk-topbar-date { font-size: 0.7rem; color: #a3d9b8; font-family: 'DM Mono', monospace; margin-top: 2px; }
@@ -443,11 +458,10 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       <div><div class="ds-label">Today</div><div class="ds-date" id="mob-date">—</div></div>
       <div class="ds-right"><div class="ds-num" id="mob-count">0</div><div class="ds-lbl">cases today</div></div>
     </div>
-    <div style="text-align:center;padding:2px 0 6px;font-size:0.7rem;font-family:'DM Mono',monospace;min-height:18px;display:flex;align-items:center;justify-content:center;gap:10px;">
-      <span id="sync-status"></span>
-      <button onclick="testSync()" style="font-size:0.6rem;padding:2px 8px;background:#1a3324;color:#7ecf9a;border:1px solid #2e5c3e;border-radius:4px;cursor:pointer;margin-left:6px;">Test Sync</button>
-      <button onclick="testConnection()" style="font-size:0.65rem;background:none;border:1px solid #e2e8f0;border-radius:4px;padding:2px 8px;cursor:pointer;color:#64748b;">Test Sync</button>
-    </div>
+<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 16px 6px;">
+  <span id="sync-status" style="font-size:0.7rem;font-family:DM Mono,monospace;"></span>
+  <button onclick="logoutApp()" style="font-size:0.72rem;padding:4px 12px;background:none;border:1px solid #f87171;border-radius:8px;color:#f87171;cursor:pointer;">⇐ Log Out</button>
+</div>
     <div class="mob-grid">
       <button class="mob-nav-btn c-green" onclick="mobOpen('mob-daily')">
         <svg class="mob-arr" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 10L10 2M10 2H4M10 2v6" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -642,19 +656,30 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
 <!-- ══ DESKTOP ══ -->
 <div class="desktop-layout">
-  <div class="sidebar">
+  <div class="sidebar" id="desk-sidebar">
     <div class="sidebar-logo"><div class="sidebar-eyebrow">Dental Lab System</div><div class="sidebar-title">Dollar<br>Dental Lab</div></div>
     <nav class="sidebar-nav">
-      <button class="nav-item active" onclick="deskTab('home',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home</button>
-      <button class="nav-item" onclick="deskTab('daily',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>Daily Record</button>
-      <button class="nav-item" onclick="deskTab('clinics',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16"/><path d="M3 21h18"/><path d="M9 8h6M9 12h6"/></svg>Clinics & Price</button>
-      <button class="nav-item" onclick="deskTab('voucher',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="11" x2="12" y2="15"/><line x1="10" y1="13" x2="14" y2="13"/></svg>Voucher</button>
-      <button class="nav-item" onclick="deskTab('reports',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Reports</button>
+      <button class="nav-item active" onclick="deskTab('home',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span class="nav-label">Home</span></button>
+      <button class="nav-item" onclick="deskTab('daily',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg><span class="nav-label">Daily Record</span></button>
+      <button class="nav-item" onclick="deskTab('clinics',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16"/><path d="M3 21h18"/><path d="M9 8h6M9 12h6"/></svg><span class="nav-label">Clinics & Price</span></button>
+      <button class="nav-item" onclick="deskTab('voucher',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="11" x2="12" y2="15"/><line x1="10" y1="13" x2="14" y2="13"/></svg><span class="nav-label">Voucher</span></button>
+      <button class="nav-item" onclick="deskTab('reports',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span class="nav-label">Reports</span></button>
     </nav>
-    <div class="sidebar-footer">Dollar Dental Lab · v1.0</div>
+    <div class="sidebar-bottom">
+      <button class="sidebar-minimize-btn" onclick="toggleSidebar()" id="minimize-btn">
+        <svg id="minimize-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19l-7-7 7-7"/><path d="M17 19l-7-7 7-7"/></svg>
+        <span class="nav-label">Minimize</span>
+      </button>
+      <button class="sidebar-logout-btn" onclick="logoutApp()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span class="nav-label">Log Out</span>
+      </button>
+      <div class="sidebar-footer"><span class="nav-label sidebar-footer-text">Dollar Dental Lab · v1.0</span></div>
+    </div>
+  </div>
   </div>
 
-  <div class="desk-main">
+  <div class="desk-main" id="desk-main">
     <div class="desk-topbar">
       <div><div class="desk-topbar-title" id="desk-page-title">Home</div><div class="desk-topbar-date" id="desk-date">—</div></div>
       <div class="desk-stats-bar">
@@ -1005,6 +1030,20 @@ function closeMobForm(){ document.getElementById('mob-add-form').classList.remov
 
 // ══ DESKTOP TABS ══
 const tabLabels={home:'Home',daily:'Daily Record',clinics:'Clinics & Price List',voucher:'Voucher',reports:'Reports'};
+function toggleSidebar() {
+  var sidebar = document.getElementById("desk-sidebar");
+  var main    = document.getElementById("desk-main");
+  var icon    = document.getElementById("minimize-icon");
+  var collapsed = sidebar.classList.toggle("collapsed");
+  main.style.marginLeft = collapsed ? "54px" : "220px";
+  icon.style.transform = collapsed ? "rotate(180deg)" : "";
+}
+
+function logoutApp() {
+  sessionStorage.removeItem("userRole");
+  location.reload();
+}
+
 function deskTab(name,btn) {
   document.querySelectorAll('.desk-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
