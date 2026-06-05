@@ -1220,36 +1220,29 @@ function submitEntry(pfx) {
 
   const base = { date, clinicName: clinic, doctorName: doctor, shade, teethNo, patientName: patient, remark };
 
-  if (caseType === 'Upper Denture' || caseType === 'Lower Denture') {
-    const teethCount = parseInt(qty) || selectedTeeth[pfx].size || 1;
-    // Entry 1: Acrylic Denture Base — always 1 unit, no teeth no
-    const entry1 = Object.assign({}, base, { id: Date.now(), caseType: 'Acrylic Denture Base (QC20)', quantity: '1', teethNo: '' });
-    // Entry 2: Acrylic Teeth — number of selected teeth, with teeth no
-    const entry2 = Object.assign({}, base, { id: Date.now()+1, caseType: 'Acrylic Teeth', quantity: String(teethCount) });
-    entries.unshift(entry2);
-    entries.unshift(entry1);
-  } else if (caseType === 'Upper Flexible' || caseType === 'Lower Flexible') {
-    const teethArr = Array.from(selectedTeeth[pfx]).sort((a,b)=>a-b);
-    const teethCount = teethArr.length || 1;
-    const firstTooth = teethArr.length > 0 ? String(teethArr[0]) : teethNo;
-    const restTeeth  = teethArr.length > 1 ? teethArr.slice(1).join(' ') : '';
-    // Entry 1: Flexible Base + One Unit — first tooth only
-    const entry1 = Object.assign({}, base, { id: Date.now(), caseType: 'Flexible Base + One Unit', quantity: '1', teethNo: firstTooth });
-    entries.unshift(entry1);
-    // Entry 2: Flexible Add One Unit — remaining teeth only if > 0
-    const addUnits = teethCount - 1;
-    if (addUnits > 0) {
-      const entry2 = Object.assign({}, base, { id: Date.now()+1, caseType: 'Flexible Add One Unit', quantity: String(addUnits), teethNo: restTeeth });
-      entries.unshift(entry2);
-    }
-  } else {
-    const entry = Object.assign({}, base, { id: Date.now(), caseType, quantity: qty });
-    entries.unshift(entry);
+if (caseType === 'Upper Denture' || caseType === 'Lower Denture') {
+  const teethCount = parseInt(qty) || selectedTeeth[pfx].size || 1;
+  const entry1 = Object.assign({}, base, { id: Date.now(),   caseType: 'Acrylic Denture Base (QC20)', quantity: '1', teethNo: '' });
+  const entry2 = Object.assign({}, base, { id: Date.now()+1, caseType: 'Acrylic Teeth', quantity: String(teethCount) });
+  entries.unshift(entry2); entries.unshift(entry1);
+  fbSaveEntry(entry1); fbSaveEntry(entry2);
+} else if (caseType === 'Upper Flexible' || caseType === 'Lower Flexible') {
+  const teethArr   = Array.from(selectedTeeth[pfx]).sort((a,b)=>a-b);
+  const teethCount = teethArr.length || 1;
+  const firstTooth = teethArr.length > 0 ? String(teethArr[0]) : teethNo;
+  const restTeeth  = teethArr.length > 1 ? teethArr.slice(1).join(' ') : '';
+  const entry1 = Object.assign({}, base, { id: Date.now(), caseType: 'Flexible Base + One Unit', quantity: '1', teethNo: firstTooth });
+  entries.unshift(entry1); fbSaveEntry(entry1);
+  const addUnits = teethCount - 1;
+  if (addUnits > 0) {
+    const entry2 = Object.assign({}, base, { id: Date.now()+1, caseType: 'Flexible Add One Unit', quantity: String(addUnits), teethNo: restTeeth });
+    entries.unshift(entry2); fbSaveEntry(entry2);
   }
-
-  localStorage.setItem('dentalEntries', JSON.stringify(entries));
-  syncToCloud();
-  const key = 'entryCount_'+todayStr;
+} else {
+  const entry = Object.assign({}, base, { id: Date.now(), caseType, quantity: qty });
+  entries.unshift(entry); fbSaveEntry(entry);
+}
+localStorage.setItem('dentalEntries', JSON.stringify(entries));
   const cnt = parseInt(localStorage.getItem(key)||'0') + (date===todayStr?1:0);
   if(date===todayStr) localStorage.setItem(key, cnt);
 
@@ -1385,7 +1378,7 @@ function saveEditEntry() {
   entry.teethNo     = document.getElementById('ee-teeth').value.trim();
   entry.remark      = document.getElementById('ee-remark').value.trim();
   localStorage.setItem('dentalEntries', JSON.stringify(entries));
-  syncToCloud();
+  fbSaveEntry(entry); // save only this entry
   closeEditEntryModal();
   renderRecordTable('m');
   renderRecordTable('d');
@@ -1396,14 +1389,14 @@ function saveEditEntry() {
 
 function editEntry(id, field, val) {
   const entry = entries.find(e=>String(e.id)===String(id));
-  if(entry) { entry[field]=val; localStorage.setItem('dentalEntries',JSON.stringify(entries)); syncToCloud(); }
+  if(entry) { entry[field]=val; localStorage.setItem('dentalEntries',JSON.stringify(entries)); fbSaveEntry(entry); }
 }
 
 function deleteEntry(id) {
   showConfirm('Delete Record?','Are you sure you want to delete this record?',function(){
   entries = entries.filter(e=>String(e.id)!==String(id));
   localStorage.setItem('dentalEntries',JSON.stringify(entries));
-  syncToCloud();
+  fbDeleteEntry(id); // delete only this entry from Firebase
   renderRecordTable('d');
   renderRecordTable('m');
   renderMobRecent();
@@ -1592,26 +1585,30 @@ function checkPassword() {
 
 function applyRole(role) {
   if (role === 'tech') {
-    // Technician: hide everything except daily record
+    // Hide desktop nav items except Daily Record
     document.querySelectorAll('.nav-item').forEach(function(el) {
-      const txt = el.textContent.trim();
-      if (!txt.includes('Daily Record')) el.style.display = 'none';
+      if (!el.textContent.trim().includes('Daily Record')) el.style.display = 'none';
     });
-    // Hide voucher, reports, clinics tabs on mobile
-    ['mob-clinics','mob-voucher','mob-reports'].forEach(function(id) {
-      const el = document.getElementById(id);
-      if(el) el.style.display = 'none';
-    });
-    // Hide nav buttons on mobile home except daily record
-    document.querySelectorAll('.mob-nav-btn').forEach(function(btn) {
-      if (!btn.textContent.includes('Daily')) btn.style.display = 'none';
-    });
-    // Show technician indicator
+    // Hide mobile home screen and go directly to daily record
+    const mobHome = document.getElementById('mob-home');
+    if(mobHome) mobHome.style.display = 'none';
+    // Open daily record directly
+    setTimeout(function(){
+      mobOpen('mob-daily');
+      populateDropdowns('m');
+      renderRecordTable('m');
+      renderMonthLabel('m');
+    }, 100);
+    // Hide back button on daily record (no home to go back to)
+    const dailyBack = document.querySelector('#mob-daily .back-btn');
+    if(dailyBack) dailyBack.style.display = 'none';
     showToast('🔧 Technician mode');
   } else {
     // Admin: show everything
     document.querySelectorAll('.nav-item').forEach(function(el) { el.style.display = ''; });
     document.querySelectorAll('.mob-nav-btn').forEach(function(btn) { btn.style.display = ''; });
+    const mobHome = document.getElementById('mob-home');
+    if(mobHome) mobHome.style.display = '';
     showToast('👑 Admin mode');
   }
 }
@@ -1789,30 +1786,50 @@ async function loadFromCloud() {
 
 // Write to Firebase (called after any change)
 let _writeTimer = null;
+// ── Write single entry (no conflict with other staff) ──
+async function fbSaveEntry(entry) {
+  try {
+    await fetch(FB_DB_URL + '/entries/' + String(entry.id) + '.json', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry)
+    });
+    showSyncStatus('ok');
+  } catch(e) { showSyncStatus('offline'); }
+}
+
+// ── Delete single entry ──
+async function fbDeleteEntry(id) {
+  try {
+    await fetch(FB_DB_URL + '/entries/' + String(id) + '.json', { method: 'DELETE' });
+    showSyncStatus('ok');
+  } catch(e) { showSyncStatus('offline'); }
+}
+
+// ── Write single payment ──
+async function fbSavePayment(id, paid) {
+  try {
+    await fetch(FB_DB_URL + '/payments/' + String(id) + '.json', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(paid)
+    });
+  } catch(e) { console.error('fbSavePayment failed:', e.message); }
+}
+
+// ── Sync non-entry data (clinics, pricelist, labinfo) ──
+// _writeTimer already declared above
 function syncToCloud() {
   clearTimeout(_writeTimer);
   _writeTimer = setTimeout(async function() {
     try {
-      const entriesObj = {};
-      entries.forEach(e => { entriesObj[String(e.id)] = e; });
-
       const clinicsObj = {};
       clinics.forEach((c,i) => { clinicsObj['clinic_'+i] = c; });
-
       const priceObj = {};
       priceList.forEach((p,i) => { priceObj['item_'+i] = p; });
-
-      const paymentsObj = {};
-      entries.forEach(e => {
-        const paid = localStorage.getItem('paid_'+e.id);
-        if(paid) paymentsObj[String(e.id)] = paid;
-      });
-
       await Promise.all([
-        fbWrite('entries',   entriesObj),
         fbWrite('clinics',   clinicsObj),
         fbWrite('pricelist', priceObj),
-        fbWrite('payments',  paymentsObj),
       ]);
       showSyncStatus('ok');
     } catch(e) {
@@ -1820,6 +1837,13 @@ function syncToCloud() {
       showSyncStatus('offline');
     }
   }, 800);
+}
+
+// ── Legacy full sync (used for labinfo) ──
+async function syncLabInfo() {
+  try {
+    await fbWrite('labinfo', Object.assign({}, labInfo));
+  } catch(e) { console.error('syncLabInfo failed:', e.message); }
 }
 
 function showSyncStatus(state) {
@@ -1997,8 +2021,7 @@ function triggerPaid(idx) {
       const doctors = getVoucherDoctors();
       const d = doctors[idx];
       if(!d) return;
-      d.entries.forEach(e => localStorage.setItem('paid_'+e.id, '1'));
-      syncToCloud();
+      d.entries.forEach(e => { localStorage.setItem('paid_'+e.id, '1'); fbSavePayment(e.id, '1'); });
       renderVoucherList();
       renderRecordTable('d');
       renderRecordTable('m');
@@ -2015,8 +2038,7 @@ function triggerUnpaid(idx) {
       const doctors = getVoucherDoctors();
       const d = doctors[idx];
       if(!d) return;
-      d.entries.forEach(e => localStorage.setItem('paid_'+e.id, '0'));
-      syncToCloud();
+      d.entries.forEach(e => { localStorage.setItem('paid_'+e.id, '0'); fbSavePayment(e.id, '0'); });
       renderVoucherList();
       renderRecordTable('d');
       renderRecordTable('m');
