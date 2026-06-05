@@ -1668,6 +1668,7 @@ async function fbWrite(path, data) {
   try {
     await fetch(FB_DB_URL + '/' + path + '.json', {
       method: 'PUT',
+      mode: 'cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
@@ -1736,17 +1737,17 @@ async function loadFromCloud() {
   showSyncStatus('syncing');
   try {
     // Test connection first
-    const testRes = await fetch(FB_DB_URL + '/.json');
+    const testRes = await fetch(FB_DB_URL + '/.json', {mode:'cors'});
     if (!testRes.ok) {
       throw new Error('HTTP ' + testRes.status + ' - ' + testRes.statusText);
     }
 
     const [fbEntries, fbClinics, fbPriceList, fbLabInfo, fbPayments] = await Promise.all([
-      fetch(FB_DB_URL + '/entries.json').then(r=>r.json()),
-      fetch(FB_DB_URL + '/clinics.json').then(r=>r.json()),
-      fetch(FB_DB_URL + '/pricelist.json').then(r=>r.json()),
-      fetch(FB_DB_URL + '/labinfo.json').then(r=>r.json()),
-      fetch(FB_DB_URL + '/payments.json').then(r=>r.json()),
+      fetch(FB_DB_URL + '/entries.json', {mode:'cors'}).then(r=>r.json()),
+      fetch(FB_DB_URL + '/clinics.json', {mode:'cors'}).then(r=>r.json()),
+      fetch(FB_DB_URL + '/pricelist.json', {mode:'cors'}).then(r=>r.json()),
+      fetch(FB_DB_URL + '/labinfo.json', {mode:'cors'}).then(r=>r.json()),
+      fetch(FB_DB_URL + '/payments.json', {mode:'cors'}).then(r=>r.json()),
     ]);
 
     if (fbEntries) {
@@ -1795,6 +1796,7 @@ async function fbSaveEntry(entry) {
   try {
     await fetch(FB_DB_URL + '/entries/' + String(entry.id) + '.json', {
       method: 'PUT',
+      mode: 'cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(entry)
     });
@@ -1805,7 +1807,7 @@ async function fbSaveEntry(entry) {
 // ── Delete single entry ──
 async function fbDeleteEntry(id) {
   try {
-    await fetch(FB_DB_URL + '/entries/' + String(id) + '.json', { method: 'DELETE' });
+    await fetch(FB_DB_URL + '/entries/' + String(id) + '.json', { method: 'DELETE', mode: 'cors' });
     showSyncStatus('ok');
   } catch(e) { showSyncStatus('offline'); }
 }
@@ -1815,6 +1817,7 @@ async function fbSavePayment(id, paid) {
   try {
     await fetch(FB_DB_URL + '/payments/' + String(id) + '.json', {
       method: 'PUT',
+      mode: 'cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(paid)
     });
