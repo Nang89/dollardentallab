@@ -332,11 +332,16 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 /* ══ PRINT ══ */
 #print-area { display: none; }
 @media print {
-  body > * { display: none !important; }
-  #print-area { display: block !important; background: white; }
-  .voucher-doc { padding: 20px; }
+  body > *:not(#print-area) { display: none !important; }
+  #print-area { display: block !important; }
   .no-print, .vdoc-paid-action { display: none !important; }
-  @page { margin: 0.5cm; size: A4; }
+  .voucher-doc { background: white !important; box-shadow: none !important; border: none !important; max-width: 100% !important; margin: 0 !important; padding: 10px !important; }
+  .vdoc-header { display: flex !important; justify-content: space-between !important; }
+  .vdoc-bill-row { display: flex !important; justify-content: space-between !important; }
+  .vdoc-bottom { display: flex !important; justify-content: space-between !important; }
+  .vdoc-items { width: 100% !important; border-collapse: collapse !important; }
+  .vdoc-items th { background: #1a3324 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { margin: 1cm; size: A4; }
 }
 </style>
 </head>
@@ -456,7 +461,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
           </div>
         </div>
         <div class="mob-tbl-wrap">
-          <table class="data-table"><thead><tr><th>Date</th><th>Clinic</th><th>Doctor</th><th>Case</th><th>Teeth</th><th>Qty</th><th></th></tr></thead><tbody id="m-record-body"></tbody></table>
+          <table class="data-table"><thead><tr><th>Date</th><th>Clinic</th><th>Doctor</th><th>Case</th><th>Teeth</th><th>Qty</th><th style="width:70px;"></th></tr></thead><tbody id="m-record-body"></tbody></table>
         </div>
       </div>
     </div>
@@ -1348,10 +1353,9 @@ function renderRecordTable(pfx) {
 
 // ══ EDIT ENTRY MODAL ══
 function openEditEntryModal(id) {
-  showToast('Opening edit for ID: ' + id);
-  const entry = entries.find(e=>String(e.id).trim()===String(id).trim());
+  const entry = entries.find(e => String(e.id).trim() === String(id).trim());
   if(!entry) { showToast('⚠ Entry not found: ' + id); return; }
-  document.getElementById('ee-id').value      = id;
+  document.getElementById('ee-id').value      = String(id);
   document.getElementById('ee-date').value    = entry.date||'';
   document.getElementById('ee-clinic').value  = entry.clinicName||'';
   document.getElementById('ee-doctor').value  = entry.doctorName||'';
@@ -2225,40 +2229,43 @@ function closeVoucherView() {
 }
 
 function downloadVoucherPDF(doctorName, month) {
-  // Find voucher-doc-inner in either mobile or desktop container
   const inner = document.getElementById('voucher-doc-inner')
     || document.querySelector('#mob-voucher-content .voucher-doc')
     || document.querySelector('#desk-voucher-content .voucher-doc');
   if(!inner) { showToast('⚠ Open a voucher first'); return; }
+
   const [y, m2] = month.split('-').map(Number);
   const monthName = new Date(y, m2-1, 1).toLocaleDateString('en-GB', {month:'long'});
-  const filename = (doctorName||'Doctor').replace(/\s+/g,'_') + '_' + monthName + '_' + y;
-  // Set title for Chrome PDF filename hint
-  const origTitle = document.title;
-  document.title = filename;
-  // Copy to print area (without the action buttons)
+  const filename = (doctorName||'Dollar Dental Lab').replace(/\s+/g,'_') + '_' + monthName + '_' + y;
+
+  // Put voucher in print area
   const printArea = document.getElementById('print-area');
   const clone = inner.cloneNode(true);
-  // Remove no-print elements from clone
   clone.querySelectorAll('.no-print, .vdoc-paid-action').forEach(el => el.remove());
+  // Remove due date input (show as text)
+  clone.querySelectorAll('input[type=date]').forEach(function(inp) {
+    const span = document.createElement('span');
+    span.textContent = inp.value;
+    inp.parentNode.replaceChild(span, inp);
+  });
   printArea.innerHTML = '';
   printArea.appendChild(clone);
+
+  // Set title for PDF filename
+  const origTitle = document.title;
+  document.title = filename;
+
   window.print();
-  setTimeout(function(){
+
+  setTimeout(function() {
     document.title = origTitle;
     printArea.innerHTML = '';
-  }, 2000);
+  }, 3000);
 }
 
 function printVoucher() {
-  const inner = document.getElementById('voucher-doc-inner');
-  if(!inner) return;
-  const printArea = document.getElementById('print-area');
-  printArea.innerHTML = inner.outerHTML;
-  window.print();
+  downloadVoucherPDF('Voucher', voucherMonth);
 }
-
-// ══ REPORTS ══
 function openMobReport(type) {
   document.getElementById('mob-report-' + type).classList.add('active');
   renderReport(type, 'mob-' + type + '-content');
@@ -2287,11 +2294,9 @@ function renderReport(type, containerId) {
   if (type === 'ledger') c.innerHTML = buildLedgerHTML();
   else if (type === 'monthly') {
     c.innerHTML = buildMonthlyHTML(rptMonthIdx);
-    setTimeout(function(){ if (window._mthDrawCurrent) window._mthDrawCurrent(); }, 100);
   }
   else if (type === 'yearly') {
     c.innerHTML = buildYearlyHTML(rptYearIdx);
-    setTimeout(function(){ if (window._yrDrawCurrent) window._yrDrawCurrent(); }, 100);
   }
   else if (type === 'percent') c.innerHTML = buildPercentHTML(rptYearIdx);
 }
@@ -2395,156 +2400,91 @@ function refreshLedger() {
 
 function buildMonthlyHTML(offset) {
   var now2 = new Date();
-  var d = new Date(now2.getFullYear(), now2.getMonth() + offset, 1);
-  var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  var d = new Date(now2.getFullYear(), now2.getMonth()+offset, 1);
+  var key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
   var label = d.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
-  var filtered = entries.filter(function(e){ return e.date && e.date.trim().startsWith(key); });
+  var filtered = entries.filter(function(e){ return e.date && e.date.startsWith(key); });
 
   var nav = '<div class="rpt-nav">'
-    + '<button onclick="rptMonthIdx--;renderReport(\'monthly\',\'mob-monthly-content\');renderReport(\'monthly\',\'desk-report-view-content\');">‹</button>'
-    + '<span class="rpt-label">' + label + '</span>'
-    + '<button onclick="rptMonthIdx++;renderReport(\'monthly\',\'mob-monthly-content\');renderReport(\'monthly\',\'desk-report-view-content\');">›</button>'
-    + '</div>';
+    +'<button onclick="rptMonthIdx--;renderReport(\'monthly\',\'mob-monthly-content\');renderReport(\'monthly\',\'desk-report-view-content\');">‹</button>'
+    +'<span class="rpt-label">'+label+'</span>'
+    +'<button onclick="rptMonthIdx++;renderReport(\'monthly\',\'mob-monthly-content\');renderReport(\'monthly\',\'desk-report-view-content\');">›</button>'
+    +'</div>';
 
-  if (!filtered.length) return nav + '<div style="color:var(--muted);text-align:center;padding:30px;">No entries for this month.</div>';
+  if(!filtered.length) return nav+'<div style="color:var(--muted);text-align:center;padding:30px;">No entries for this month.</div>';
 
-  var COLORS = ['#7ecf9a','#60a5fa','#f59e0b','#f87171','#a78bfa','#34d399','#fb923c','#e879f9','#38bdf8','#4ade80'];
-  var uid = 'mthChart';
-
-  // ── Data: Case Types ──
+  // Case type bar chart
   var caseMap = {};
-  filtered.forEach(function(e) {
-    var ct = e.caseType || 'Unknown';
-    caseMap[ct] = (caseMap[ct]||0) + (parseFloat(e.quantity)||1);
-  });
-  var caseTotal = Object.values(caseMap).reduce(function(a,b){return a+b;},0);
+  filtered.forEach(function(e){ var ct=e.caseType||'Unknown'; caseMap[ct]=(caseMap[ct]||0)+(parseFloat(e.quantity)||1); });
+  var caseKeys = Object.keys(caseMap).sort(function(a,b){return caseMap[b]-caseMap[a];});
+  var caseTotal = caseKeys.reduce(function(s,k){return s+caseMap[k];},0);
 
-  // ── Data: Clinic Income ──
+  // Clinic bar chart
   var clinicMap = {};
-  filtered.forEach(function(e) {
-    var cl = e.clinicName || 'Unknown';
-    clinicMap[cl] = (clinicMap[cl]||0) + getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1);
-  });
-  var clinicTotal = Object.values(clinicMap).reduce(function(a,b){return a+b;},0);
+  filtered.forEach(function(e){ var cl=e.clinicName||'Unknown'; clinicMap[cl]=(clinicMap[cl]||0)+(parseFloat(e.quantity)||1); });
+  var clinicKeys = Object.keys(clinicMap).sort(function(a,b){return clinicMap[b]-clinicMap[a];});
+  var clinicTotal = clinicKeys.reduce(function(s,k){return s+clinicMap[k];},0);
 
-  var allClinics = Object.keys(clinicMap).sort();
-
-  // ── Legend HTML ──
-  function legendHTML(dataMap, total, isCurrency) {
-    return Object.keys(dataMap).sort(function(a,b){return dataMap[b]-dataMap[a];}).map(function(k,i){
-      var pct = (dataMap[k]/total*100).toFixed(1);
-      var val = isCurrency ? fmtNum(dataMap[k])+' MMK' : dataMap[k]+' units';
-      return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">'
-        +'<span style="width:11px;height:11px;border-radius:50%;background:'+COLORS[i%COLORS.length]+';flex-shrink:0;display:inline-block;"></span>'
-        +'<span style="font-size:0.76rem;color:var(--text);">'+esc(k)+'</span>'
-        +'<span style="font-size:0.72rem;color:var(--muted);margin-left:auto;white-space:nowrap;">'+val+' ('+pct+'%)</span>'
-        +'</div>';
-    }).join('');
-  }
-
-  // ── Bar rows HTML ──
-  function barRowsHTML(clinicName) {
-    var cEntries = clinicName === '__ALL__'
-      ? filtered
-      : filtered.filter(function(e){ return (e.clinicName||'Unknown')===clinicName; });
-    var cMap = {};
-    cEntries.forEach(function(e){
-      var ct = e.caseType||'Unknown';
-      cMap[ct] = (cMap[ct]||0)+(parseFloat(e.quantity)||1);
-    });
-    var sorted = Object.keys(cMap).sort(function(a,b){return cMap[b]-cMap[a];});
-    if (!sorted.length) return '<div style="color:var(--muted);text-align:center;padding:16px;">No data.</div>';
-    var maxVal = cMap[sorted[0]];
-    return sorted.map(function(k,i){
-      var pct = (cMap[k]/maxVal*100).toFixed(0);
-      return '<div style="margin-bottom:9px;">'
-        +'<div style="display:flex;justify-content:space-between;font-size:0.77rem;margin-bottom:3px;">'
-        +'<span style="color:var(--text);">'+esc(k)+'</span>'
-        +'<span style="color:var(--muted);">'+cMap[k]+' units</span></div>'
-        +'<div style="background:#1e2a3a;border-radius:4px;height:16px;overflow:hidden;">'
-        +'<div style="background:'+COLORS[i%COLORS.length]+';width:'+pct+'%;height:100%;border-radius:4px;transition:width 0.3s;"></div>'
-        +'</div></div>';
-    }).join('');
-  }
-
-  // expose for dynamic bar updates
-  window._mthBarRowsCurrent = barRowsHTML;
-
-  var clinicOpts = '<option value="__ALL__">All Clinics</option>'
-    + allClinics.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
-  var defaultClinic = '__ALL__';
-  var barBodyId = 'barBody_'+uid;
-  var barSelId  = 'barSel_'+uid;
-
-  // ── Canvas draw function (called after HTML inserts) ──
-  function drawPieCanvas(canvasId, dataMap, total) {
-    var canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    var ctx = canvas.getContext('2d');
-    var cx = canvas.width/2, cy = canvas.height/2, r = cx - 4;
-    var keys = Object.keys(dataMap).sort(function(a,b){return dataMap[b]-dataMap[a];});
-    var angle = -Math.PI/2;
-    keys.forEach(function(k,i){
-      var slice = dataMap[k]/total * 2*Math.PI;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, r, angle, angle+slice);
-      ctx.closePath();
-      ctx.fillStyle = COLORS[i%COLORS.length];
-      ctx.fill();
-      angle += slice;
-    });
-  }
-
-  // trigger canvas draw - called from renderReport via requestAnimationFrame
-  window._mthDrawCurrent = function() {
-    drawPieCanvas('pie1_'+uid, caseMap, caseTotal);
-    drawPieCanvas('pie2_'+uid, clinicMap, clinicTotal);
-  };
-
-  var html = nav;
-
-  // 2 Pie cards
-  html += '<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px;">';
-
-  html += '<div style="flex:1;min-width:240px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
-    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:10px;">🦷 Case Types</div>'
-    +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
-    +'<canvas id="pie1_'+uid+'" width="120" height="120" style="flex-shrink:0;"></canvas>'
-    +'<div style="flex:1;min-width:110px;">'+legendHTML(caseMap,caseTotal,false)+'</div>'
-    +'</div>'
-    +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:var(--text);">'+caseTotal+' units</b></div>'
-    +'</div>';
-
-  html += '<div style="flex:1;min-width:240px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
-    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:10px;">🏥 Income by Clinic</div>'
-    +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
-    +'<canvas id="pie2_'+uid+'" width="120" height="120" style="flex-shrink:0;"></canvas>'
-    +'<div style="flex:1;min-width:110px;">'+legendHTML(clinicMap,clinicTotal,true)+'</div>'
-    +'</div>'
-    +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:var(--text);">'+fmtNum(clinicTotal)+' MMK</b></div>'
-    +'</div>';
-
-  html += '</div>';
-
-  // Bar chart card
-  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;">'
-    +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">'
-    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);">📊 Case Types by Clinic</div>'
-    +'<select id="'+barSelId+'" class="ldg-sel" onchange="document.getElementById(\''+barBodyId+'\').innerHTML=window._mthBarRowsCurrent(this.value)">'
-    +clinicOpts+'</select>'
-    +'</div>'
-    +'<div id="'+barBodyId+'">'+barRowsHTML(defaultClinic)+'</div>'
-    +'</div>';
-
-  return html;
+function barChart(keys, dataMap, total, colors, isCurrency) {
+  var maxVal = keys.length ? Math.max.apply(null, keys.map(function(k){return dataMap[k];})) : 1;
+  return keys.map(function(k,i){
+    var w   = Math.round(dataMap[k]/maxVal*100);
+    var pct = Math.round(dataMap[k]/total*100);
+    var val = isCurrency ? fmtNum(dataMap[k])+' MMK' : dataMap[k]+' units';
+    var color = colors[i%colors.length];
+    return '<div style="margin-bottom:12px;display:flex;align-items:center;gap:10px;">'
+      +'<div style="width:130px;text-align:right;font-size:0.73rem;color:var(--text);font-weight:500;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(k)+'</div>'
+      +'<div style="flex:1;background:#f0f4f8;border-radius:6px;height:22px;overflow:hidden;">'
+      +'<div style="width:'+Math.max(3,w)+'%;background:'+color+';height:100%;border-radius:6px;display:flex;align-items:center;padding-left:8px;box-sizing:border-box;transition:width 0.5s ease;">'
+      +'<span style="font-size:0.68rem;color:#fff;font-weight:600;white-space:nowrap;padding-right:6px;">'+val+'</span>'
+      +'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
 }
 
-function buildYearlyHTML(offset) {
-  var yr = new Date().getFullYear() + offset;
-  var allYearEntries = entries.filter(function(e){ return e.date && e.date.trim().startsWith(String(yr)); });
+// Income by clinic
+var clinicIncomeMap = {};
+filtered.forEach(function(e){
+  var cl = e.clinicName||'Unknown';
+  clinicIncomeMap[cl] = (clinicIncomeMap[cl]||0) + getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1);
+});
+var clinicIncomeKeys = Object.keys(clinicIncomeMap).sort(function(a,b){return clinicIncomeMap[b]-clinicIncomeMap[a];});
+var clinicIncomeTotal = clinicIncomeKeys.reduce(function(s,k){return s+clinicIncomeMap[k];},0);
 
-  // Quarter filter: 0=All, 1=Q1, 2=Q2, 3=Q3, 4=Q4
+var COLORS = ['#16a34a','#2563eb','#d97706','#dc2626','#7c3aed','#0891b2','#db2777','#65a30d','#ea580c','#6366f1'];
+
+var html = nav;
+html += '<div style="display:flex;flex-direction:column;gap:14px;margin-bottom:16px;">';
+
+// Case types card
+html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
+  +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">🦷 Case Types — '+label+'</div>'
+  +barChart(caseKeys, caseMap, caseTotal, COLORS, false)
+  +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:var(--text);">'+caseTotal+' units</b></div>'
+  +'</div>';
+
+// Clinics by units card
+html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
+  +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">🏥 Clinics — '+label+'</div>'
+  +barChart(clinicKeys, clinicMap, clinicTotal, COLORS, false)
+  +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:var(--text);">'+clinicTotal+' units</b></div>'
+  +'</div>';
+
+// Income by clinic card
+html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
+  +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">💰 Income by Clinic — '+label+'</div>'
+  +barChart(clinicIncomeKeys, clinicIncomeMap, clinicIncomeTotal, COLORS, true)
+  +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:var(--text);">'+fmtNum(clinicIncomeTotal)+' MMK</b></div>'
+  +'</div>';
+
+html += '</div>';
+return html;
+}
+function buildYearlyHTML(offset) {
+  var yr = new Date().getFullYear() + (offset||0);
+  var allYearEntries = entries.filter(function(e){ return e.date && e.date.startsWith(String(yr)); });
+
   if (typeof window.rptYearQuarter === 'undefined') window.rptYearQuarter = 0;
   var q = window.rptYearQuarter;
   var quarterMonths = { 1:[1,2,3], 2:[4,5,6], 3:[7,8,9], 4:[10,11,12] };
@@ -2554,21 +2494,15 @@ function buildYearlyHTML(offset) {
   });
 
   var nav = '<div class="rpt-nav">'
-    + '<button onclick="rptYearIdx--;window.rptYearQuarter=0;renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');">‹</button>'
-    + '<span class="rpt-label">' + yr + '</span>'
-    + '<button onclick="rptYearIdx++;window.rptYearQuarter=0;renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');">›</button>'
-    + '</div>';
+    +'<button onclick="rptYearIdx--;window.rptYearQuarter=0;renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');">‹</button>'
+    +'<span class="rpt-label">'+yr+'</span>'
+    +'<button onclick="rptYearIdx++;window.rptYearQuarter=0;renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');">›</button>'
+    +'</div>';
 
-  var quarters = [
-    { label: 'All', val: 0 },
-    { label: 'Q1', val: 1, sub: 'Jan–Mar' },
-    { label: 'Q2', val: 2, sub: 'Apr–Jun' },
-    { label: 'Q3', val: 3, sub: 'Jul–Sep' },
-    { label: 'Q4', val: 4, sub: 'Oct–Dec' },
-  ];
+  var quarters = [{label:'All',val:0},{label:'Q1',val:1,sub:'Jan–Mar'},{label:'Q2',val:2,sub:'Apr–Jun'},{label:'Q3',val:3,sub:'Jul–Sep'},{label:'Q4',val:4,sub:'Oct–Dec'}];
   var qNav = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">'
-    + quarters.map(function(qt){
-      var active = (q === qt.val);
+    +quarters.map(function(qt){
+      var active = (q===qt.val);
       return '<button onclick="window.rptYearQuarter='+qt.val+';renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');"'
         +' style="flex:1;min-width:50px;padding:7px 4px;border-radius:8px;border:1px solid '+(active?'var(--green)':'var(--border)')+';'
         +'background:'+(active?'#1a3324':'var(--surface)')+';color:'+(active?'var(--green)':'var(--muted)')+';'
@@ -2576,116 +2510,83 @@ function buildYearlyHTML(offset) {
         +'<div>'+qt.label+'</div>'
         +(qt.sub?'<div style="font-size:0.65rem;opacity:0.7;">'+qt.sub+'</div>':'')
         +'</button>';
-    }).join('')
-    + '</div>';
+    }).join('')+'</div>';
 
-  var periodLabel = q === 0 ? String(yr) : ('Q'+q+' '+yr);
+  var periodLabel = q===0 ? String(yr) : ('Q'+q+' '+yr);
 
-  if (!filtered.length) return nav + qNav + '<div style="color:var(--muted);text-align:center;padding:30px;">No entries for this period.</div>';
+  if(!filtered.length) return nav+qNav+'<div style="color:var(--muted);text-align:center;padding:30px;">No entries for this period.</div>';
 
-  var COLORS = ['#7ecf9a','#60a5fa','#f59e0b','#f87171','#a78bfa','#34d399','#fb923c','#e879f9','#38bdf8','#4ade80'];
-  var uid = 'yrChart';
+  var COLORS = ['#16a34a','#2563eb','#d97706','#dc2626','#7c3aed','#0891b2','#db2777','#65a30d','#ea580c','#6366f1'];
 
-  // ── Pie 1: Case types ──
+  // Case type bar chart
   var caseMap = {};
-  filtered.forEach(function(e){
-    var ct = e.caseType||'Unknown';
-    caseMap[ct] = (caseMap[ct]||0)+(parseFloat(e.quantity)||1);
-  });
-  var caseTotal = Object.values(caseMap).reduce(function(a,b){return a+b;},0);
+  filtered.forEach(function(e){ var ct=e.caseType||'Unknown'; caseMap[ct]=(caseMap[ct]||0)+(parseFloat(e.quantity)||1); });
+  var caseKeys = Object.keys(caseMap).sort(function(a,b){return caseMap[b]-caseMap[a];});
+  var caseTotal = caseKeys.reduce(function(s,k){return s+caseMap[k];},0);
 
-  // ── Pie 2: Income by month ──
-  var monthMap = {};
-  var monthOrder = [];
-  var activeMths = q === 0 ? [1,2,3,4,5,6,7,8,9,10,11,12] : quarterMonths[q];
+  // Monthly income bar chart
+  var activeMths = q===0?[1,2,3,4,5,6,7,8,9,10,11,12]:quarterMonths[q];
+  var monthMap = {}, monthOrder = [];
   activeMths.forEach(function(m){
-    var mk = yr + '-' + String(m).padStart(2,'0');
-    var mEntries = filtered.filter(function(e){ return e.date && e.date.startsWith(mk); });
-    if (mEntries.length) {
-      var mLabel = new Date(yr, m-1, 1).toLocaleDateString('en-GB',{month:'short'});
-      monthMap[mLabel] = mEntries.reduce(function(s,e){ return s+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1);},0);
+    var mk = yr+'-'+String(m).padStart(2,'0');
+    var mEntries = filtered.filter(function(e){return e.date&&e.date.startsWith(mk);});
+    if(mEntries.length){
+      var mLabel = new Date(yr,m-1,1).toLocaleDateString('en-GB',{month:'short'});
+      monthMap[mLabel] = mEntries.reduce(function(s,e){return s+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1);},0);
       monthOrder.push(mLabel);
     }
   });
-  var incomeTotal = Object.values(monthMap).reduce(function(a,b){return a+b;},0);
+  var incomeTotal = monthOrder.reduce(function(s,k){return s+monthMap[k];},0);
+  var maxIncome = monthOrder.length ? Math.max.apply(null, monthOrder.map(function(k){return monthMap[k];})) : 1;
 
-  // ── Legend ──
-  function legendHTML(dataMap, keys, total, isCurrency) {
+  function barChart(keys, dataMap, total, colors, isCurrency) {
+    var maxVal = keys.length ? Math.max.apply(null, keys.map(function(k){return dataMap[k];})) : 1;
     return keys.map(function(k,i){
-      var pct = (dataMap[k]/total*100).toFixed(1);
+      var w   = Math.round(dataMap[k]/maxVal*100);
+      var pct = Math.round(dataMap[k]/total*100);
       var val = isCurrency ? fmtNum(dataMap[k])+' MMK' : dataMap[k]+' units';
-      return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">'
-        +'<span style="width:11px;height:11px;border-radius:50%;background:'+COLORS[i%COLORS.length]+';flex-shrink:0;display:inline-block;"></span>'
-        +'<span style="font-size:0.76rem;color:var(--text);">'+esc(k)+'</span>'
-        +'<span style="font-size:0.72rem;color:var(--muted);margin-left:auto;white-space:nowrap;">'+val+' ('+pct+'%)</span>'
+      var color = colors[i%colors.length];
+      return '<div style="margin-bottom:12px;display:flex;align-items:center;gap:10px;">'
+        +'<div style="width:130px;text-align:right;font-size:0.73rem;color:var(--text);font-weight:500;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(k)+'</div>'
+        +'<div style="flex:1;background:#f0f4f8;border-radius:6px;height:22px;overflow:hidden;">'
+        +'<div style="width:'+Math.max(3,w)+'%;background:'+color+';height:100%;border-radius:6px;display:flex;align-items:center;padding-left:8px;box-sizing:border-box;transition:width 0.5s ease;">'
+        +'<span style="font-size:0.68rem;color:#fff;font-weight:600;white-space:nowrap;padding-right:6px;">'+val+'</span>'
+        +'</div>'
+        +'</div>'
         +'</div>';
     }).join('');
   }
 
-  // ── Canvas draw ──
-  function drawPie(canvasId, dataMap, keys, total) {
-    var canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    var ctx = canvas.getContext('2d');
-    var cx = canvas.width/2, cy = canvas.height/2, r = cx-4;
-    var angle = -Math.PI/2;
-    keys.forEach(function(k,i){
-      var slice = dataMap[k]/total*2*Math.PI;
-      ctx.beginPath(); ctx.moveTo(cx,cy);
-      ctx.arc(cx,cy,r,angle,angle+slice);
-      ctx.closePath();
-      ctx.fillStyle = COLORS[i%COLORS.length];
-      ctx.fill();
-      angle += slice;
-    });
-  }
-
-  var caseKeys = Object.keys(caseMap).sort(function(a,b){return caseMap[b]-caseMap[a];});
-
-  window._yrDrawCurrent = function() {
-    drawPie('yrPie1_'+uid, caseMap, caseKeys, caseTotal);
-    drawPie('yrPie2_'+uid, monthMap, monthOrder, incomeTotal);
-  };
-
-  // ── Monthly table ──
+  // Monthly table
   var grandTotal = 0;
   var tRows = '';
   activeMths.forEach(function(mm){
-    var mmk = yr + '-' + String(mm).padStart(2,'0');
-    var mmEntries = filtered.filter(function(e){ return e.date && e.date.startsWith(mmk); });
-    if (!mmEntries.length) return;
-    var mmLabel = new Date(yr, mm-1, 1).toLocaleDateString('en-GB',{month:'long'});
-    var mmTotal = mmEntries.reduce(function(s,e){ return s+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1);},0);
+    var mmk = yr+'-'+String(mm).padStart(2,'0');
+    var mmEntries = filtered.filter(function(e){return e.date&&e.date.startsWith(mmk);});
+    if(!mmEntries.length) return;
+    var mmLabel = new Date(yr,mm-1,1).toLocaleDateString('en-GB',{month:'long'});
+    var mmTotal = mmEntries.reduce(function(s,e){return s+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1);},0);
     grandTotal += mmTotal;
     tRows += '<tr><td>'+mmLabel+'</td><td style="text-align:center">'+mmEntries.length+'</td><td style="text-align:right">'+fmtNum(mmTotal)+'</td></tr>';
   });
 
   var html = nav + qNav;
+  html += '<div style="display:flex;flex-direction:column;gap:14px;margin-bottom:16px;">';
 
-  // 2 Pie cards
-  html += '<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px;">';
-
-  html += '<div style="flex:1;min-width:240px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
-    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:10px;">🦷 Case Types — '+periodLabel+'</div>'
-    +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
-    +'<canvas id="yrPie1_'+uid+'" width="120" height="120" style="flex-shrink:0;"></canvas>'
-    +'<div style="flex:1;min-width:110px;">'+legendHTML(caseMap, caseKeys, caseTotal, false)+'</div>'
-    +'</div>'
+  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
+    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">🦷 Case Types — '+periodLabel+'</div>'
+    +barChart(caseKeys, caseMap, caseTotal, COLORS, false)
     +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:var(--text);">'+caseTotal+' units</b></div>'
     +'</div>';
 
-  html += '<div style="flex:1;min-width:240px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
-    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:10px;">💰 Monthly Income — '+periodLabel+'</div>'
-    +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
-    +'<canvas id="yrPie2_'+uid+'" width="120" height="120" style="flex-shrink:0;"></canvas>'
-    +'<div style="flex:1;min-width:110px;">'+legendHTML(monthMap, monthOrder, incomeTotal, true)+'</div>'
-    +'</div>'
+  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
+    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">💰 Monthly Income — '+periodLabel+'</div>'
+    +barChart(monthOrder, monthMap, incomeTotal, COLORS, true)
     +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:var(--text);">'+fmtNum(incomeTotal)+' MMK</b></div>'
     +'</div>';
 
   html += '</div>';
 
-  // Monthly table
   html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
     +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:10px;">📋 Monthly Breakdown</div>'
     +'<div style="overflow-x:auto;"><table class="rpt-table">'
