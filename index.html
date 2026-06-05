@@ -84,11 +84,39 @@ window._fbRemove = async function(path) {
 window._fbOn = function(path, cb) {
   const table = path.split('/')[0];
   // Initial fetch
-  window._fbGet(table).then(cb).catch(function(e){ console.warn('fbOn fetch failed:', e); });
-  // Poll every 5 seconds
-  setInterval(function() {
-    window._fbGet(table).then(cb).catch(function(){});
-  }, 5000);
+  window._fbGet(table).then(function(data){ cb(data); showSyncStatus('ok'); }).catch(function(e){ console.warn('fbOn fetch failed:', e); });
+  // Use Supabase Realtime for instant updates
+  if(table === 'entries' || table === 'payments') {
+    const wsUrl = 'wss://axyfvezumdkzgaqtoyjj.supabase.co/realtime/v1/websocket?apikey=' + _SB_KEY + '&vsn=1.0.0';
+    let ws;
+    function connect() {
+      ws = new WebSocket(wsUrl);
+      ws.onopen = function() {
+        // Subscribe to table changes
+        ws.send(JSON.stringify({
+          topic: 'realtime:public:' + table,
+          event: 'phx_join',
+          payload: { config: { broadcast: { self: true }, presence: { key: '' }, postgres_changes: [{ event: '*', schema: 'public', table: table }] } },
+          ref: '1'
+        }));
+        showSyncStatus('ok');
+        console.log('Realtime connected for', table);
+      };
+      ws.onmessage = function(e) {
+        const msg = JSON.parse(e.data);
+        if(msg.event === 'postgres_changes' || (msg.payload && msg.payload.data)) {
+          // Refetch on any change
+          window._fbGet(table).then(function(data){ cb(data); showSyncStatus('ok'); }).catch(function(){});
+        }
+      };
+      ws.onerror = function() { showSyncStatus('offline'); };
+      ws.onclose = function() {
+        // Reconnect after 3 seconds
+        setTimeout(connect, 3000);
+      };
+    }
+    connect();
+  }
 };
 
 window._fbReady = true;
@@ -1423,8 +1451,13 @@ function clearForm(pfx) {
   document.getElementById(pfx+'-qty').value     = '';
   document.getElementById(pfx+'-patient').value = '';
   document.getElementById(pfx+'-remark').value  = '';
+  // Reset clinic to show placeholder
+  var clinicSel = document.getElementById(pfx+'-clinic');
+  if(clinicSel) clinicSel.selectedIndex = 0;
+  // Reset case to show placeholder
+  var caseSel = document.getElementById(pfx+'-case');
+  if(caseSel) caseSel.selectedIndex = 0;
   clearTeeth(pfx);
-  // Re-enable all teeth (in case denture was selected)
   document.querySelectorAll('[id^="'+pfx+'-tooth-"]').forEach(function(b){ b.classList.remove('tooth-disabled'); });
 }
 
