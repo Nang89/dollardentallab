@@ -5,7 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dollar Dental Lab</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+try {
+  firebase.initializeApp({
+    apiKey: "AIzaSyAnN2WIYWTUYrIxiSHBW7uhPqTP6DlGmwI",
+    authDomain: "dollardentallab-ced81.firebaseapp.com",
+    databaseURL: "https://dollardentallab-ced81-default-rtdb.firebaseio.com",
+    projectId: "dollardentallab-ced81",
+    storageBucket: "dollardentallab-ced81.firebasestorage.app",
+    messagingSenderId: "1014638385854",
+    appId: "1:1014638385854:web:665e4693a9886214b31cef"
+  });
+  var _db = firebase.database();
+  window._fbSet    = function(path, data) { return _db.ref(path).set(data); };
+  window._fbGet    = function(path) { return _db.ref(path).get().then(function(s){ return s.val(); }); };
+  window._fbRemove = function(path) { return _db.ref(path).remove(); };
+  window._fbOn     = function(path, cb) { _db.ref(path).on("value", function(snap){ cb(snap.val()); }); };
+  window._fbReady  = true;
+} catch(e) { console.warn("Firebase not available:", e.message); window._fbReady = false; }
+</script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -948,8 +968,8 @@ window.addEventListener('DOMContentLoaded', function() {
   loadLabInfo();
   initVoucher();
 
-  // Connect to Firebase (loads compat SDK and sets up real-time listener)
-  firebaseConnect();
+  // Load data from Firebase
+  loadFromCloud();
 
   var modals = ['clinic-modal','price-modal','lab-modal','voucher-view-modal'];
   modals.forEach(function(id){
@@ -1662,157 +1682,139 @@ function doChangePassword() {
   showToast('✓ ' + (_cpRole==='admin'?'Admin':'Technician') + ' password changed!');
 }
 // ══ FIREBASE COMPAT ══
-var FB_URL = 'https://dollardentallab-ced81-default-rtdb.firebaseio.com';
-var fbDatabase = null;
-var fbOnline   = false;
-
-var FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAnN2WIYWTUYrIxiSHBW7uhPqTP6DlGmwI",
-  authDomain: "dollardentallab-ced81.firebaseapp.com",
-  databaseURL: "https://dollardentallab-ced81-default-rtdb.firebaseio.com",
-  projectId: "dollardentallab-ced81",
-  storageBucket: "dollardentallab-ced81.firebasestorage.app",
-  messagingSenderId: "1014638385854",
-  appId: "1:1014638385854:web:665e4693a9886214b31cef"
-};
-
-// ── Load Firebase compat SDK dynamically (works on ALL browsers including Safari) ──
-function firebaseConnect() {
-  showSyncStatus('syncing');
-  if (!window.firebase) {
-    var s = document.createElement('script');
-    s.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
-    s.onload = function() {
-      var s2 = document.createElement('script');
-      s2.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js';
-      s2.onload = function() { initFirebase(); };
-      document.head.appendChild(s2);
-    };
-    document.head.appendChild(s);
-  } else {
-    initFirebase();
-  }
+// ══ FIREBASE SDK FUNCTIONS ══
+async function fbSaveEntry(entry) {
+  try { await window._fbSet("entries/" + String(entry.id), entry); showSyncStatus("ok"); }
+  catch(e) { console.error("fbSaveEntry:", e); showSyncStatus("offline"); }
 }
 
-function initFirebase() {
-  try {
-    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-    fbDatabase = firebase.database();
-
-    // ── Real-time listener — fires immediately with current data, then on every change ──
-    fbDatabase.ref('dental').on('value', function(snapshot) {
-      var d = snapshot.val();
-      applyFirebaseData(d);
-      fbOnline = true;
-      showSyncStatus('ok');
-      console.log('Firebase data received, entries:', entries.length);
-    }, function(err) {
-      fbOnline = false;
-      showSyncStatus('offline');
-      console.error('Firebase listener error:', err);
-      loadFromLocalStorage();
-    });
-
-  } catch(e) {
-    fbOnline = false;
-    showSyncStatus('offline');
-    console.error('Firebase init failed:', e);
-    loadFromLocalStorage();
-  }
+async function fbDeleteEntry(id) {
+  try { await window._fbRemove("entries/" + String(id)); showSyncStatus("ok"); }
+  catch(e) { console.error("fbDeleteEntry:", e); showSyncStatus("offline"); }
 }
 
-// ── Apply Firebase data to app ──
-function applyFirebaseData(d) {
-  if (!d) { loadFromLocalStorage(); return; }
-
-  if (d.entries) {
-    var arr = Object.values(d.entries);
-    entries = arr.map(function(e) { return Object.assign({}, e, { id: Number(e.id)||e.id }); });
-    entries.sort(function(a,b) { return Number(b.id) - Number(a.id); });
-    localStorage.setItem('dentalEntries', JSON.stringify(entries));
-  }
-  if (d.clinics) {
-    clinics = Object.values(d.clinics);
-    localStorage.setItem('dentalClinics', JSON.stringify(clinics));
-  }
-  if (d.pricelist) {
-    priceList = Object.values(d.pricelist);
-    DEFAULT_PRICE_LIST.forEach(function(def) {
-      if (!priceList.find(function(p){ return p.item===def.item; })) priceList.push(def);
-    });
-    localStorage.setItem('dentalPriceList', JSON.stringify(priceList));
-  }
-  if (d.labinfo) {
-    Object.assign(labInfo, d.labinfo);
-    localStorage.setItem('dentalLabInfo', JSON.stringify(labInfo));
-  }
-  if (d.payments) {
-    Object.entries(d.payments).forEach(function(kv) {
-      localStorage.setItem('paid_' + kv[0], kv[1]);
-    });
-  }
-  renderAll();
+async function fbSavePayment(id, paid) {
+  try { await window._fbSet("payments/" + String(id), paid); }
+  catch(e) { console.error("fbSavePayment:", e); }
 }
 
-// ── Fallback: load from localStorage if Firebase fails ──
-function loadFromLocalStorage() {
-  var le = JSON.parse(localStorage.getItem('dentalEntries')  ||'[]');
-  var lc = JSON.parse(localStorage.getItem('dentalClinics')  ||'[]');
-  var lp = JSON.parse(localStorage.getItem('dentalPriceList')||'[]');
-  var ll = JSON.parse(localStorage.getItem('dentalLabInfo')  ||'{}');
-  if (le.length) entries   = le;
-  if (lc.length) clinics   = lc;
-  if (lp.length) { priceList = lp; DEFAULT_PRICE_LIST.forEach(function(def){ if(!priceList.find(function(p){return p.item===def.item;})) priceList.push(def); }); }
-  if (Object.keys(ll).length) labInfo = ll;
-  renderAll();
-}
-
-// Alias for compatibility
-function loadFromCloud() { firebaseConnect(); }
-function setupRealtimeListeners() {} // handled by .on('value') in initFirebase
-
-// ── Individual record saves (write only this record, no conflict) ──
-function fbSaveEntry(entry) {
-  if (!fbDatabase || !fbOnline) return;
-  fbDatabase.ref('dental/entries/' + String(entry.id)).set(entry);
-}
-
-function fbDeleteEntry(id) {
-  if (!fbDatabase || !fbOnline) return;
-  fbDatabase.ref('dental/entries/' + String(id)).remove();
-}
-
-function fbSavePayment(id, paid) {
-  if (!fbDatabase || !fbOnline) return;
-  fbDatabase.ref('dental/payments/' + String(id)).set(paid);
-}
-
-// ── Sync non-entry data (clinics, pricelist, labinfo) ──
 var _writeTimer = null;
 function syncToCloud() {
   clearTimeout(_writeTimer);
-  _writeTimer = setTimeout(function() {
-    if (!fbDatabase || !fbOnline) return;
-    var clinicsObj = {};
-    clinics.forEach(function(c,i) { clinicsObj['clinic_'+i] = c; });
-    var priceObj = {};
-    priceList.forEach(function(p,i) { priceObj['item_'+i] = p; });
-    fbDatabase.ref('dental/clinics').set(clinicsObj);
-    fbDatabase.ref('dental/pricelist').set(priceObj);
-    showSyncStatus('ok');
+  _writeTimer = setTimeout(async function() {
+    try {
+      var clinicsObj = {}; clinics.forEach(function(c,i){ clinicsObj["clinic_"+i]=c; });
+      var priceObj = {};  priceList.forEach(function(p,i){ priceObj["item_"+i]=p; });
+      await Promise.all([window._fbSet("clinics", clinicsObj), window._fbSet("pricelist", priceObj)]);
+      showSyncStatus("ok");
+    } catch(e) { showSyncStatus("offline"); }
   }, 800);
 }
 
-function syncLabInfo() {
-  if (!fbDatabase || !fbOnline) return;
-  fbDatabase.ref('dental/labinfo').set(Object.assign({}, labInfo));
+async function syncLabInfo() {
+  try { await window._fbSet("labinfo", Object.assign({}, labInfo)); }
+  catch(e) { console.error("syncLabInfo:", e); }
 }
-  const el = document.getElementById('sync-status');
-  if (!el) return;
-  if (state === 'syncing') { el.textContent = '⟳ Syncing...'; el.style.color = '#f59e0b'; }
-  else if (state === 'ok')  { el.textContent = '✓ Live';       el.style.color = '#16a34a'; setTimeout(()=>{ el.textContent='🔴 Live'; el.style.color='#16a34a'; }, 2000); }
-  else                      { el.textContent = '⚠ Offline';    el.style.color = '#dc2626'; }
+
+// ══ FIREBASE SYNC FUNCTIONS ══
+async function loadFromCloud() {
+  showSyncStatus('syncing');
+  try {
+    // Wait for Firebase SDK ready
+    let waited = 0;
+    while(!window._fbReady && waited < 5000) {
+      await new Promise(function(r){ setTimeout(r, 100); });
+      waited += 100;
+    }
+    if(!window._fbReady) throw new Error('Firebase SDK timeout');
+
+    const results = await Promise.all([
+      window._fbGet('entries'),
+      window._fbGet('clinics'),
+      window._fbGet('pricelist'),
+      window._fbGet('labinfo'),
+      window._fbGet('payments'),
+    ]);
+
+    const fbEntries=results[0], fbClinics=results[1], fbPriceList=results[2],
+          fbLabInfo=results[3], fbPayments=results[4];
+
+    if(fbEntries) {
+      entries = Object.values(fbEntries).map(function(e){ return Object.assign({},e,{id:Number(e.id)||e.id}); });
+      entries.sort(function(a,b){ return Number(b.id)-Number(a.id); });
+      localStorage.setItem('dentalEntries', JSON.stringify(entries));
+    }
+    if(fbClinics) {
+      clinics = Object.values(fbClinics);
+      localStorage.setItem('dentalClinics', JSON.stringify(clinics));
+    }
+    if(fbPriceList) {
+      priceList = Object.values(fbPriceList);
+      DEFAULT_PRICE_LIST.forEach(function(def){ if(!priceList.find(function(p){return p.item===def.item;})) priceList.push(def); });
+      localStorage.setItem('dentalPriceList', JSON.stringify(priceList));
+    }
+    if(fbLabInfo) {
+      Object.assign(labInfo, fbLabInfo);
+      localStorage.setItem('dentalLabInfo', JSON.stringify(labInfo));
+    }
+    if(fbPayments) {
+      Object.entries(fbPayments).forEach(function(kv){ localStorage.setItem('paid_'+kv[0], kv[1]); });
+    }
+    showSyncStatus('ok');
+    console.log('Firebase OK — entries:', entries.length);
+  } catch(e) {
+    console.error('Firebase load failed:', e.message);
+    showSyncStatus('offline');
+    showToast('⚠ Offline: ' + e.message.slice(0,40));
+    var le=JSON.parse(localStorage.getItem('dentalEntries')||'[]');
+    var lc=JSON.parse(localStorage.getItem('dentalClinics')||'[]');
+    var lp=JSON.parse(localStorage.getItem('dentalPriceList')||'[]');
+    if(le.length) entries=le;
+    if(lc.length) clinics=lc;
+    if(lp.length) priceList=lp;
+  }
+  renderAll();
+  setupRealtimeListeners();
 }
+
+function setupRealtimeListeners() {
+  if(!window._fbReady) { setTimeout(setupRealtimeListeners, 200); return; }
+  window._fbOn('entries', function(data) {
+    if(!data) return;
+    entries = Object.values(data).map(function(e){ return Object.assign({},e,{id:Number(e.id)||e.id}); });
+    entries.sort(function(a,b){ return Number(b.id)-Number(a.id); });
+    localStorage.setItem('dentalEntries', JSON.stringify(entries));
+    renderRecordTable('d'); renderRecordTable('m');
+    renderMobRecent(); renderDeskRecent();
+    renderVoucherList();
+    showSyncStatus('ok');
+  });
+  window._fbOn('clinics', function(data) {
+    if(!data) return;
+    clinics = Object.values(data);
+    localStorage.setItem('dentalClinics', JSON.stringify(clinics));
+    renderClinicTable(); populateDropdowns('d'); populateDropdowns('m');
+  });
+  window._fbOn('payments', function(data) {
+    if(!data) return;
+    Object.entries(data).forEach(function(kv){ localStorage.setItem('paid_'+kv[0], kv[1]); });
+    renderRecordTable('d'); renderRecordTable('m');
+    renderVoucherList();
+  });
+}
+
+function renderAll() {
+  renderRecordTable('d'); renderRecordTable('m');
+  renderClinicTable(); renderPriceTable();
+  populateDropdowns('d'); populateDropdowns('m');
+  renderMobRecent(); renderDeskRecent();
+  loadLabInfo();
+  renderMonthLabel('d'); renderMonthLabel('m');
+  voucherMonth = todayStr.slice(0,7);
+  renderVoucherMonth();
+  renderVoucherList();
+}
+
 
 function showSyncStatus(state) {
   const el = document.getElementById('sync-status');
@@ -1821,24 +1823,6 @@ function showSyncStatus(state) {
   else if (state === 'ok')  { el.textContent = '✓ Live';       el.style.color = '#16a34a'; setTimeout(function(){ el.textContent='🔴 Live'; el.style.color='#16a34a'; }, 2000); }
   else                      { el.textContent = '⚠ Offline';    el.style.color = '#dc2626'; }
 }
-
-function renderAll() {
-  renderRecordTable('d');
-  renderRecordTable('m');
-  renderClinicTable();
-  renderPriceTable();
-  populateDropdowns('d');
-  populateDropdowns('m');
-  renderMobRecent();
-  renderDeskRecent();
-  loadLabInfo();
-  renderMonthLabel('d');
-  renderMonthLabel('m');
-  voucherMonth = todayStr.slice(0,7);
-  renderVoucherMonth();
-  renderVoucherList();
-}
-
 function persistAll(){
   localStorage.setItem('dentalClinics',JSON.stringify(clinics));
   localStorage.setItem('dentalPriceList',JSON.stringify(priceList));
