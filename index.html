@@ -5,26 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dollar Dental Lab</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
-try {
-  firebase.initializeApp({
-    apiKey: "AIzaSyAnN2WIYWTUYrIxiSHBW7uhPqTP6DlGmwI",
-    authDomain: "dollardentallab-ced81.firebaseapp.com",
-    databaseURL: "https://dollardentallab-ced81-default-rtdb.firebaseio.com",
-    projectId: "dollardentallab-ced81",
-    storageBucket: "dollardentallab-ced81.firebasestorage.app",
-    messagingSenderId: "1014638385854",
-    appId: "1:1014638385854:web:665e4693a9886214b31cef"
+const _FB_URL = 'https://dollardentallab-ced81-default-rtdb.firebaseio.com';
+
+window._fbGet = async function(path) {
+  const r = await fetch(_FB_URL + '/' + path + '.json');
+  return r.json();
+};
+window._fbSet = async function(path, data) {
+  await fetch(_FB_URL + '/' + path + '.json', {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
   });
-  var _db = firebase.database();
-  window._fbSet    = function(path, data) { return _db.ref(path).set(data); };
-  window._fbGet    = function(path) { return _db.ref(path).get().then(function(s){ return s.val(); }); };
-  window._fbRemove = function(path) { return _db.ref(path).remove(); };
-  window._fbOn     = function(path, cb) { _db.ref(path).on("value", function(snap){ cb(snap.val()); }); };
-  window._fbReady  = true;
-} catch(e) { console.warn("Firebase not available:", e.message); window._fbReady = false; }
+};
+window._fbRemove = async function(path) {
+  await fetch(_FB_URL + '/' + path + '.json', { method: 'DELETE' });
+};
+window._fbOn = function(path, cb) {
+  // Initial fetch
+  fetch(_FB_URL + '/' + path + '.json')
+    .then(function(r){ return r.json(); })
+    .then(function(data){ cb(data); })
+    .catch(function(e){ console.warn('fbOn fetch failed:', e); });
+  // Poll every 15 seconds for updates
+  setInterval(function() {
+    fetch(_FB_URL + '/' + path + '.json')
+      .then(function(r){ return r.json(); })
+      .then(function(data){ cb(data); })
+      .catch(function(){});
+  }, 15000);
+};
+window._fbReady = true;
 </script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -221,16 +233,30 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 @media (min-width: 900px) {
   .mobile-layout { display: none; }
   .desktop-layout { display: flex; height: 100vh; overflow: hidden; }
-  .sidebar { width: 220px; min-width: 220px; background: #1a3324; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; position: fixed; left: 0; top: 0; }
-  .sidebar-logo { padding: 22px 20px 20px; border-bottom: 1px solid var(--border); }
-  .sidebar-eyebrow { font-family: 'DM Mono', monospace; font-size: 0.58rem; letter-spacing: 0.18em; color: #a3d9b8; text-transform: uppercase; margin-bottom: 8px; }
-  .sidebar-title { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: #ffffff; line-height: 1.2; }
-  .sidebar-nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
+  .sidebar { width: 220px; min-width: 220px; background: #1a3324; border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; position: fixed; left: 0; top: 0; transition: width 0.2s ease; overflow: hidden; }
+  .sidebar.collapsed { width: 54px; min-width: 54px; }
+  .sidebar.collapsed .sidebar-eyebrow,
+  .sidebar.collapsed .sidebar-title,
+  .sidebar.collapsed .nav-label,
+  .sidebar.collapsed .sidebar-footer-text { display: none; }
+  .sidebar.collapsed .nav-item { justify-content: center; padding: 10px; }
+  .sidebar.collapsed .sidebar-logo { padding: 14px 10px; justify-content: center; }
+  .sidebar.collapsed .sidebar-bottom { padding: 10px; align-items: center; }
+  .sidebar-logo { padding: 22px 20px 20px; border-bottom: 1px solid #2e5c3e; flex-shrink: 0; }
+  .sidebar-eyebrow { font-family: 'DM Mono', monospace; font-size: 0.58rem; letter-spacing: 0.18em; color: #7ecf9a; text-transform: uppercase; margin-bottom: 6px; }
+  .sidebar-title { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: #ffffff; line-height: 1.25; }
+  .sidebar-nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 3px; flex: 1; overflow-y: auto; min-height: 0; }
+  .sidebar-bottom { padding: 10px 10px 14px; border-top: 1px solid #2e5c3e; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+  /* desk-content margin handled by desk-main */
+  .desk-content.expanded { margin-left: 54px; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; cursor: pointer; border: none; background: transparent; color: #a3d9b8; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; width: 100%; text-align: left; transition: background 0.15s, color 0.15s; }
   .nav-item:hover { background: #2e5c3e; color: #ffffff; }
   .nav-item.active { background: #2e5c3e; color: #7ecf9a; }
-  .sidebar-footer { padding: 14px 20px; border-top: 1px solid #2e5c3e; font-size: 0.62rem; color: #a3d9b8; font-family: 'DM Mono', monospace; }
-  .desk-main { flex: 1; margin-left: 220px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  .sidebar-minimize-btn { background: none; border: none; color: #a3d9b8; cursor: pointer; padding: 8px; border-radius: 6px; display: flex; align-items: center; gap: 8px; width: 100%; font-size: 0.78rem; font-family: 'DM Sans', sans-serif; transition: background 0.15s; }
+  .sidebar-minimize-btn:hover { background: #2e5c3e; color: #fff; }
+  .sidebar-logout-btn { background: none; border: none; color: #f87171; cursor: pointer; padding: 8px; border-radius: 6px; display: flex; align-items: center; gap: 8px; width: 100%; font-size: 0.78rem; font-family: 'DM Sans', sans-serif; transition: background 0.15s; }
+  .sidebar-logout-btn:hover { background: #3d1515; color: #fca5a5; }
+  .desk-main { flex: 1; margin-left: 220px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: margin-left 0.2s ease; }
   .desk-topbar { background: #1a3324; border-bottom: 1px solid var(--border); padding: 14px 26px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
   .desk-topbar-title { font-size: 1rem; font-weight: 500; color: #ffffff; }
   .desk-topbar-date { font-size: 0.7rem; color: #a3d9b8; font-family: 'DM Mono', monospace; margin-top: 2px; }
@@ -238,7 +264,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   .desk-stat-pill { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; text-align: center; }
   .desk-stat-pill .num { font-size: 1.15rem; font-weight: 600; line-height: 1; }
   .desk-stat-pill .lbl { font-size: 0.6rem; font-family: 'DM Mono', monospace; margin-top: 2px; }
-  .desk-content { flex: 1; overflow-y: auto; padding: 22px 26px 30px; }
+  .desk-content { flex: 1; overflow-y: auto; padding: 22px 26px 30px 8px; }
   .desk-tab { display: none; }
   .desk-tab.active { display: block; }
   .sec-label { font-size: 0.63rem; font-family: 'DM Mono', monospace; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 11px; }
@@ -272,7 +298,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   .desk-placeholder .ptitle { font-size: 1rem; color: var(--text); font-family: 'DM Serif Display', serif; }
 
   /* Desktop daily layout: form left, table right below */
-  .daily-layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
+  .daily-layout { display: grid; grid-template-columns: 480px 1fr; gap: 20px; align-items: start; }
   .daily-form-col { position: sticky; top: 0; }
   .form-row { grid-template-columns: 1fr 1fr; }
 }
@@ -431,11 +457,10 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       <div><div class="ds-label">Today</div><div class="ds-date" id="mob-date">—</div></div>
       <div class="ds-right"><div class="ds-num" id="mob-count">0</div><div class="ds-lbl">cases today</div></div>
     </div>
-    <div style="text-align:center;padding:2px 0 6px;font-size:0.7rem;font-family:'DM Mono',monospace;min-height:18px;display:flex;align-items:center;justify-content:center;gap:10px;">
-      <span id="sync-status"></span>
-      <button onclick="testSync()" style="font-size:0.6rem;padding:2px 8px;background:#1a3324;color:#7ecf9a;border:1px solid #2e5c3e;border-radius:4px;cursor:pointer;margin-left:6px;">Test Sync</button>
-      <button onclick="testConnection()" style="font-size:0.65rem;background:none;border:1px solid #e2e8f0;border-radius:4px;padding:2px 8px;cursor:pointer;color:#64748b;">Test Sync</button>
-    </div>
+<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 16px 6px;">
+  <span id="sync-status" style="font-size:0.7rem;font-family:DM Mono,monospace;"></span>
+  <button onclick="logoutApp()" style="font-size:0.72rem;padding:4px 12px;background:none;border:1px solid #f87171;border-radius:8px;color:#f87171;cursor:pointer;">⇐ Log Out</button>
+</div>
     <div class="mob-grid">
       <button class="mob-nav-btn c-green" onclick="mobOpen('mob-daily')">
         <svg class="mob-arr" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 10L10 2M10 2H4M10 2v6" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -499,27 +524,27 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
         <div class="form-card-hdr">New Entry</div>
         <div class="form-body">
           <div class="form-row two">
-            <div class="field-wrap"><div class="field-lbl">Date <span class="req">*</span></div><input type="date" class="f-input" id="m-date"/></div>
-            <div class="field-wrap"><div class="field-lbl">Quantity</div><input type="number" class="f-input" id="m-qty" min="1" placeholder="e.g. 3"/></div>
+            <div class="field-wrap"><label class="field-lbl" for="m-date">Date <span class="req">*</span></label><input type="date" class="f-input" id="m-date"/></div>
+            <div class="field-wrap"><label class="field-lbl" for="m-qty">Quantity</label><input type="number" class="f-input" id="m-qty" min="1" placeholder="e.g. 3"/></div>
           </div>
           <div class="field-wrap">
-            <div class="field-lbl">Clinic Name <span class="req">*</span></div>
+            <label class="field-lbl" for="m-clinic">Clinic Name <span class="req">*</span></label>
             <select class="f-select" id="m-clinic" onchange="onClinicChange('m')"><option value="">— Select Clinic —</option></select>
           </div>
           <div class="field-wrap">
-            <div class="field-lbl">Doctor Name <span class="req">*</span></div>
+            <label class="field-lbl" for="m-doctor">Doctor Name <span class="req">*</span></label>
             <select class="f-select" id="m-doctor"><option value="">— Select Doctor —</option></select>
           </div>
           <div class="field-wrap">
-            <div class="field-lbl">Case Type <span class="req">*</span></div>
+            <label class="field-lbl" for="m-case">Case Type <span class="req">*</span></label>
             <select class="f-select" id="m-case"><option value="">— Select Case —</option></select>
           </div>
           <div class="form-row two">
-            <div class="field-wrap"><div class="field-lbl">Shade</div><input type="text" class="f-input" id="m-shade" placeholder="e.g. A3"/></div>
-            <div class="field-wrap"><div class="field-lbl">Patient Name</div><input type="text" class="f-input" id="m-patient" placeholder="e.g. John"/></div>
+            <div class="field-wrap"><label class="field-lbl" for="m-shade">Shade</label><input type="text" class="f-input" id="m-shade" placeholder="e.g. A3"/></div>
+            <div class="field-wrap"><label class="field-lbl" for="m-patient">Patient Name</label><input type="text" class="f-input" id="m-patient" placeholder="e.g. John"/></div>
           </div>
           <div class="field-wrap">
-            <div class="field-lbl">Teeth No.</div>
+            <div class="field-lbl" role="group" aria-label="Teeth No.">Teeth No.</div>
             <div class="teeth-wrap">
               <div class="teeth-display empty" id="m-teeth-display">No teeth selected</div>
               <div class="teeth-diagram" id="m-teeth-diagram"></div>
@@ -529,7 +554,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
               </div>
             </div>
           </div>
-          <div class="field-wrap"><div class="field-lbl">Remark</div><textarea class="f-textarea" id="m-remark" placeholder="Any notes..."></textarea></div>
+          <div class="field-wrap"><label class="field-lbl" for="m-remark">Remark</label><textarea class="f-textarea" id="m-remark" placeholder="Any notes..."></textarea></div>
           <button class="submit-btn" onclick="submitEntry('m')">+ Add to Record</button>
         </div>
       </div>
@@ -630,24 +655,35 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
 <!-- ══ DESKTOP ══ -->
 <div class="desktop-layout">
-  <div class="sidebar">
+  <div class="sidebar" id="desk-sidebar">
     <div class="sidebar-logo"><div class="sidebar-eyebrow">Dental Lab System</div><div class="sidebar-title">Dollar<br>Dental Lab</div></div>
     <nav class="sidebar-nav">
-      <button class="nav-item active" onclick="deskTab('home',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home</button>
-      <button class="nav-item" onclick="deskTab('daily',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>Daily Record</button>
-      <button class="nav-item" onclick="deskTab('clinics',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16"/><path d="M3 21h18"/><path d="M9 8h6M9 12h6"/></svg>Clinics & Price</button>
-      <button class="nav-item" onclick="deskTab('voucher',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="11" x2="12" y2="15"/><line x1="10" y1="13" x2="14" y2="13"/></svg>Voucher</button>
-      <button class="nav-item" onclick="deskTab('reports',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Reports</button>
+      <button class="nav-item active" onclick="deskTab('home',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span class="nav-label">Home</span></button>
+      <button class="nav-item" onclick="deskTab('daily',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg><span class="nav-label">Daily Record</span></button>
+      <button class="nav-item" onclick="deskTab('clinics',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16"/><path d="M3 21h18"/><path d="M9 8h6M9 12h6"/></svg><span class="nav-label">Clinics & Price</span></button>
+      <button class="nav-item" onclick="deskTab('voucher',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="11" x2="12" y2="15"/><line x1="10" y1="13" x2="14" y2="13"/></svg><span class="nav-label">Voucher</span></button>
+      <button class="nav-item" onclick="deskTab('reports',this)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span class="nav-label">Reports</span></button>
     </nav>
-    <div class="sidebar-footer">Dollar Dental Lab · v1.0</div>
+    <div style="border-top:1px solid #2e5c3e;padding:10px;">
+      <button onclick="logoutApp()" style="display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:#f87171;cursor:pointer;padding:10px 12px;border-radius:8px;font-size:0.85rem;font-family:sans-serif;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Log Out
+      </button>
+    </div>
   </div>
 
-  <div class="desk-main">
+  <div class="desk-main" id="desk-main">
     <div class="desk-topbar">
       <div><div class="desk-topbar-title" id="desk-page-title">Home</div><div class="desk-topbar-date" id="desk-date">—</div></div>
-      <div class="desk-stats-bar">
-        <div class="desk-stat-pill"><div class="num" style="color:var(--green);" id="desk-today-num">0</div><div class="lbl" style="color:#3e8c5a;">today</div></div>
-        <div class="desk-stat-pill"><div class="num" style="color:var(--blue);" id="desk-month-num">0</div><div class="lbl" style="color:#2a5ea0;">this month</div></div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button id="tech-logout-btn" onclick="logoutApp()" style="display:none;align-items:center;gap:6px;background:none;border:1px solid #f87171;color:#f87171;cursor:pointer;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-family:sans-serif;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Log Out
+        </button>
+        <div class="desk-stats-bar">
+          <div class="desk-stat-pill"><div class="num" style="color:var(--green);" id="desk-today-num">0</div><div class="lbl" style="color:var(--muted);">today</div></div>
+          <div class="desk-stat-pill"><div class="num" style="color:var(--blue);" id="desk-month-num">0</div><div class="lbl" style="color:var(--muted);">this month</div></div>
+        </div>
       </div>
     </div>
 
@@ -681,43 +717,36 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
         <div class="daily-form-col">
           <div class="form-card">
             <div class="form-card-hdr">New Entry</div>
-            <div class="form-body">
-              <div class="form-row">
-                <div class="field-wrap"><div class="field-lbl">Date <span class="req">*</span></div><input type="date" class="f-input" id="d-date"/></div>
-                <div class="field-wrap"><div class="field-lbl">Quantity</div><input type="number" class="f-input" id="d-qty" min="1" placeholder="e.g. 3"/></div>
-              </div>
-              <div class="field-wrap">
-                <div class="field-lbl">Clinic Name <span class="req">*</span></div>
-                <select class="f-select" id="d-clinic" onchange="onClinicChange('d')"><option value="">— Select Clinic —</option></select>
-              </div>
-              <div class="field-wrap">
-                <div class="field-lbl">Doctor Name <span class="req">*</span></div>
-                <select class="f-select" id="d-doctor"><option value="">— Select Doctor —</option></select>
-              </div>
-              <div class="field-wrap">
-                <div class="field-lbl">Case Type <span class="req">*</span></div>
-                <select class="f-select" id="d-case"><option value="">— Select Case —</option></select>
-              </div>
-              <div class="form-row">
-                <div class="field-wrap"><div class="field-lbl">Shade</div><input type="text" class="f-input" id="d-shade" placeholder="e.g. A3"/></div>
-                <div class="field-wrap"><div class="field-lbl">Patient Name</div><input type="text" class="f-input" id="d-patient" placeholder="e.g. John"/></div>
-              </div>
-              <div class="field-wrap">
-                <div class="field-lbl">Teeth No.</div>
-                <div class="teeth-wrap">
-                  <div class="teeth-display empty" id="d-teeth-display">No teeth selected</div>
-                  <div class="teeth-diagram" id="d-teeth-diagram"></div>
-                  <div class="teeth-manual-row">
-                    <input type="text" id="d-teeth-manual" placeholder="Or type: 11 12 21 22" oninput="syncManual('d')"/>
-                    <button class="teeth-clear-btn" onclick="clearTeeth('d')">Clear</button>
-                  </div>
-                </div>
-              </div>
-              <div class="field-wrap"><div class="field-lbl">Remark</div><textarea class="f-textarea" id="d-remark" placeholder="Any notes..."></textarea></div>
-              <button class="submit-btn" onclick="submitEntry('d')">+ Add to Record</button>
-            </div>
-          </div>
-        </div>
+<div class="form-body">
+<div class="form-row">
+<div class="field-wrap"><label class="field-lbl" for="d-date">Date <span class="req">*</span></label><input type="date" class="f-input" id="d-date"/></div>
+<div class="field-wrap"><label class="field-lbl" for="d-qty">Quantity</label><input type="number" class="f-input" id="d-qty" min="1" placeholder="e.g. 3"/></div>
+</div>
+<div class="form-row">
+<div class="field-wrap"><label class="field-lbl" for="d-clinic">Clinic Name <span class="req">*</span></label><select class="f-select" id="d-clinic" onchange="onClinicChange('d')"><option value="">— Select Clinic —</option></select></div>
+<div class="field-wrap"><label class="field-lbl" for="d-doctor">Doctor Name <span class="req">*</span></label><select class="f-select" id="d-doctor"><option value="">— Select Doctor —</option></select></div>
+</div>
+<div class="form-row">
+<div class="field-wrap"><label class="field-lbl" for="d-case">Case Type <span class="req">*</span></label><select class="f-select" id="d-case"><option value="">— Select Case —</option></select></div>
+<div class="field-wrap"><label class="field-lbl" for="d-shade">Shade</label><input type="text" class="f-input" id="d-shade" placeholder="e.g. A3"/></div>
+</div>
+<div class="field-wrap"><label class="field-lbl" for="d-patient">Patient Name</label><input type="text" class="f-input" id="d-patient" placeholder="e.g. John"/></div>
+<div class="field-wrap">
+<div class="field-lbl" role="group" aria-label="Teeth No.">Teeth No.</div>
+<div class="teeth-wrap">
+<div class="teeth-display empty" id="d-teeth-display">No teeth selected</div>
+<div class="teeth-diagram" id="d-teeth-diagram"></div>
+<div class="teeth-manual-row">
+<input type="text" id="d-teeth-manual" placeholder="Or type: 11 12 21 22" oninput="syncManual('d')"/>
+<button class="teeth-clear-btn" onclick="clearTeeth('d')">Clear</button>
+</div>
+</div>
+</div>
+<div class="field-wrap"><label class="field-lbl" for="d-remark">Remark</label><textarea class="f-textarea" id="d-remark" placeholder="Any notes..."></textarea></div>
+<button class="submit-btn" onclick="submitEntry('d')">+ Add to Record</button>
+</div>
+</div>
+</div>
 
         <!-- Right: Monthly Records Table -->
         <div>
@@ -941,7 +970,12 @@ const shortDate = now.toLocaleDateString('en-GB',{day:'numeric',month:'short',ye
 const longDate  = now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
 window.addEventListener('DOMContentLoaded', function() {
-  // Check password first
+  // Always lock on fresh load - hide app content until password entered
+  sessionStorage.removeItem('userRole');
+  if(window.location.protocol !== 'file:') {
+    document.querySelector('.desktop-layout') && (document.querySelector('.desktop-layout').style.visibility = 'hidden');
+    document.querySelector('.mobile-layout') && (document.querySelector('.mobile-layout').style.visibility = 'hidden');
+  }
   initLockScreen();
   document.getElementById('mob-date').textContent  = shortDate;
   document.getElementById('mob-count').textContent = parseInt(localStorage.getItem('entryCount_'+todayStr)||'0');
@@ -993,6 +1027,37 @@ function closeMobForm(){ document.getElementById('mob-add-form').classList.remov
 
 // ══ DESKTOP TABS ══
 const tabLabels={home:'Home',daily:'Daily Record',clinics:'Clinics & Price List',voucher:'Voucher',reports:'Reports'};
+function toggleSidebar() {
+  var sidebar = document.getElementById("desk-sidebar");
+  var main = document.getElementById("desk-main");
+  var icon = document.getElementById("minimize-icon");
+  var collapsed = sidebar.classList.toggle("collapsed");
+  main.style.marginLeft = collapsed ? "54px" : "220px";
+  icon.style.transform = collapsed ? "rotate(180deg)" : "";
+  sidebar.querySelectorAll(".nav-label").forEach(function(el){ el.style.display = collapsed ? "none" : ""; });
+}
+
+function logoutApp() {
+  sessionStorage.removeItem('userRole');
+  document.querySelector('.desktop-layout') && (document.querySelector('.desktop-layout').style.visibility = 'hidden');
+  document.querySelector('.mobile-layout') && (document.querySelector('.mobile-layout').style.visibility = 'hidden');
+  const lock = document.getElementById('lock-screen');
+  if(lock) {
+    lock.style.display = 'flex';
+    document.getElementById('lock-input').value = '';
+    document.getElementById('lock-error').textContent = '';
+    setTimeout(function(){ document.getElementById('lock-input').focus(); }, 100);
+  }
+  document.querySelectorAll('.nav-item').forEach(function(el){ el.style.display = ''; });
+  var mobHome = document.getElementById('mob-home');
+  if(mobHome) mobHome.style.display = '';
+  var sidebar = document.getElementById('desk-sidebar');
+  var main    = document.getElementById('desk-main');
+  if(sidebar) sidebar.style.display = '';
+  if(main)    main.style.marginLeft = '220px';
+}
+
+
 function deskTab(name,btn) {
   document.querySelectorAll('.desk-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -1313,7 +1378,9 @@ function renderMonthLabel(pfx) {
 function renderRecordTable(pfx) {
   const tbody = document.getElementById(pfx+'-record-body');
   if(!tbody) return;
-  const filtered = entries.filter(e=>e.date && e.date.trim().startsWith(viewMonth[pfx]));
+  const filtered = entries
+    .filter(e=>e.date && e.date.trim().startsWith(viewMonth[pfx]))
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||'')||Number(b.id)-Number(a.id));
   if(!filtered.length) {
     const cols = pfx==='d' ? 11 : 7;
     tbody.innerHTML=`<tr><td colspan="${cols}" class="tbl-empty">No records for this month.</td></tr>`;
@@ -1591,16 +1658,21 @@ function initLockScreen() {
 function checkPassword() {
   const input = document.getElementById('lock-input').value;
   const err   = document.getElementById('lock-error');
+  // Reveal app content
+  function unlockApp() {
+    document.getElementById('lock-screen').style.display = 'none';
+    document.querySelector('.desktop-layout') && (document.querySelector('.desktop-layout').style.visibility = '');
+    document.querySelector('.mobile-layout') && (document.querySelector('.mobile-layout').style.visibility = '');
+    err.textContent = '';
+  }
   if (input === getAdminPassword()) {
     sessionStorage.setItem('userRole', 'admin');
-    document.getElementById('lock-screen').style.display = 'none';
+    unlockApp();
     applyRole('admin');
-    err.textContent = '';
   } else if (input === getTechPassword()) {
     sessionStorage.setItem('userRole', 'tech');
-    document.getElementById('lock-screen').style.display = 'none';
+    unlockApp();
     applyRole('tech');
-    err.textContent = '';
   } else {
     err.textContent = '✕ Incorrect password. Please try again.';
     document.getElementById('lock-input').value = '';
@@ -1610,30 +1682,36 @@ function checkPassword() {
 
 function applyRole(role) {
   if (role === 'tech') {
-    // Hide desktop nav items except Daily Record
-    document.querySelectorAll('.nav-item').forEach(function(el) {
-      if (!el.textContent.trim().includes('Daily Record')) el.style.display = 'none';
-    });
-    // Hide mobile home screen and go directly to daily record
-    const mobHome = document.getElementById('mob-home');
+    // Hide sidebar completely
+    var sidebar = document.getElementById('desk-sidebar');
+    var main    = document.getElementById('desk-main');
+    if(sidebar) sidebar.style.display = 'none';
+    if(main)    main.style.marginLeft = '0';
+    // Hide mobile home, go directly to daily record
+    var mobHome = document.getElementById('mob-home');
     if(mobHome) mobHome.style.display = 'none';
-    // Open daily record directly
     setTimeout(function(){
+      // Desktop: switch to daily record tab
+      deskTab('daily', null);
+      // Mobile: open daily record
       mobOpen('mob-daily');
       populateDropdowns('m');
       renderRecordTable('m');
       renderMonthLabel('m');
     }, 100);
-    // Hide back button on daily record (no home to go back to)
-    const dailyBack = document.querySelector('#mob-daily .back-btn');
-    if(dailyBack) dailyBack.style.display = 'none';
+    // Show logout button in topbar for technician
+    var techBtn = document.getElementById('tech-logout-btn');
+    if(techBtn) techBtn.style.display = 'flex';
     showToast('🔧 Technician mode');
   } else {
-    // Admin: show everything
-    document.querySelectorAll('.nav-item').forEach(function(el) { el.style.display = ''; });
-    document.querySelectorAll('.mob-nav-btn').forEach(function(btn) { btn.style.display = ''; });
-    const mobHome = document.getElementById('mob-home');
+    // Admin: show everything normally
+    var sidebar = document.getElementById('desk-sidebar');
+    var main    = document.getElementById('desk-main');
+    if(sidebar) sidebar.style.display = '';
+    if(main)    main.style.marginLeft = '220px';
+    var mobHome = document.getElementById('mob-home');
     if(mobHome) mobHome.style.display = '';
+    document.querySelectorAll('.nav-item').forEach(function(el){ el.style.display = ''; });
     showToast('👑 Admin mode');
   }
 }
@@ -1719,29 +1797,39 @@ async function syncLabInfo() {
 // ══ FIREBASE SYNC FUNCTIONS ══
 async function loadFromCloud() {
   showSyncStatus('syncing');
-  try {
-    // Wait for Firebase SDK ready
-    let waited = 0;
-    while(!window._fbReady && waited < 5000) {
-      await new Promise(function(r){ setTimeout(r, 100); });
-      waited += 100;
-    }
-    if(!window._fbReady) throw new Error('Firebase SDK timeout');
 
-    const results = await Promise.all([
+  // Wait for Firebase SDK
+  let waited = 0;
+  while(!window._fbReady && waited < 8000) {
+    await new Promise(function(r){ setTimeout(r, 200); });
+    waited += 200;
+  }
+  if(!window._fbReady) {
+    showSyncStatus('offline');
+    showToast('⚠ Firebase unavailable');
+    renderAll();
+    return;
+  }
+
+  await fetchAndRender();
+  setupRealtimeListeners();
+}
+
+async function fetchAndRender() {
+  try {
+    var results = await Promise.all([
       window._fbGet('entries'),
       window._fbGet('clinics'),
       window._fbGet('pricelist'),
       window._fbGet('labinfo'),
       window._fbGet('payments'),
     ]);
-
-    const fbEntries=results[0], fbClinics=results[1], fbPriceList=results[2],
-          fbLabInfo=results[3], fbPayments=results[4];
+    var fbEntries=results[0], fbClinics=results[1], fbPriceList=results[2],
+        fbLabInfo=results[3], fbPayments=results[4];
 
     if(fbEntries) {
       entries = Object.values(fbEntries).map(function(e){ return Object.assign({},e,{id:Number(e.id)||e.id}); });
-      entries.sort(function(a,b){ return Number(b.id)-Number(a.id); });
+      entries.sort(function(a,b){ return (b.date||''). localeCompare(a.date||'')||Number(b.id)-Number(a.id); });
       localStorage.setItem('dentalEntries', JSON.stringify(entries));
     }
     if(fbClinics) {
@@ -1760,41 +1848,151 @@ async function loadFromCloud() {
     if(fbPayments) {
       Object.entries(fbPayments).forEach(function(kv){ localStorage.setItem('paid_'+kv[0], kv[1]); });
     }
+    renderAll();
     showSyncStatus('ok');
-    console.log('Firebase OK — entries:', entries.length);
+    console.log('Data loaded — entries:', entries.length);
   } catch(e) {
-    console.error('Firebase load failed:', e.message);
+    console.error('fetchAndRender failed:', e);
     showSyncStatus('offline');
-    showToast('⚠ Offline: ' + e.message.slice(0,40));
-    var le=JSON.parse(localStorage.getItem('dentalEntries')||'[]');
-    var lc=JSON.parse(localStorage.getItem('dentalClinics')||'[]');
-    var lp=JSON.parse(localStorage.getItem('dentalPriceList')||'[]');
-    if(le.length) entries=le;
-    if(lc.length) clinics=lc;
-    if(lp.length) priceList=lp;
+    showToast('⚠ Load failed: ' + e.message.slice(0,40));
+    renderAll();
   }
-  renderAll();
-  setupRealtimeListeners();
 }
 
 function setupRealtimeListeners() {
   if(!window._fbReady) { setTimeout(setupRealtimeListeners, 200); return; }
+
+  // Entries — try onValue, fallback to polling every 10s
+  try {
+    window._fbOn('entries', function(data) {
+      if(!data) return;
+      entries = Object.values(data).map(function(e){ return Object.assign({},e,{id:Number(e.id)||e.id}); });
+      entries.sort(function(a,b){ return (b.date||''). localeCompare(a.date||'')||Number(b.id)-Number(a.id); });
+      localStorage.setItem('dentalEntries', JSON.stringify(entries));
+      renderRecordTable('d'); renderRecordTable('m');
+      renderMobRecent(); renderDeskRecent();
+      renderVoucherList();
+      showSyncStatus('ok');
+    });
+    window._fbOn('clinics', function(data) {
+      if(!data) return;
+      clinics = Object.values(data);
+      localStorage.setItem('dentalClinics', JSON.stringify(clinics));
+      renderClinicTable(); populateDropdowns('d'); populateDropdowns('m');
+    });
+    window._fbOn('payments', function(data) {
+      if(!data) return;
+      Object.entries(data).forEach(function(kv){ localStorage.setItem('paid_'+kv[0], kv[1]); });
+      renderRecordTable('d'); renderRecordTable('m');
+      renderVoucherList();
+    });
+  } catch(e) {
+    console.warn('onValue failed, using polling:', e);
+  }
+
+  // Poll every 30s as backup for browsers where onValue doesn't work
+  setInterval(function() {
+    window._fbGet('entries').then(function(data) {
+      if(!data) return;
+      var fresh = Object.values(data).map(function(e){ return Object.assign({},e,{id:Number(e.id)||e.id}); });
+      fresh.sort(function(a,b){ return (b.date||'').localeCompare(a.date||'')||Number(b.id)-Number(a.id); });
+      if(JSON.stringify(fresh) !== JSON.stringify(entries)) {
+        entries = fresh;
+        localStorage.setItem('dentalEntries', JSON.stringify(entries));
+        renderRecordTable('d'); renderRecordTable('m');
+        renderMobRecent(); renderDeskRecent();
+        renderVoucherList();
+      }
+    }).catch(function(){});
+  }, 30000);
+}
+
+function setupRealtimeListeners() {
+  if(!window._fbReady) { setTimeout(setupRealtimeListeners, 200); return; }
+
+  var initialLoad = true;
+  var initialTimer = setTimeout(function() {
+    // onValue didn't fire in 3 seconds — use get() as fallback
+    if(initialLoad) {
+      console.log('onValue timeout — using get() fallback');
+      initialLoad = false;
+      Promise.all([
+        window._fbGet('entries'),
+        window._fbGet('clinics'),
+        window._fbGet('pricelist'),
+        window._fbGet('labinfo'),
+        window._fbGet('payments'),
+      ]).then(function(results) {
+        var fbEntries=results[0], fbClinics=results[1], fbPriceList=results[2],
+            fbLabInfo=results[3], fbPayments=results[4];
+        if(fbEntries) {
+          entries = Object.values(fbEntries).map(function(e){ return Object.assign({},e,{id:Number(e.id)||e.id}); });
+          entries.sort(function(a,b){ return (b.date||''). localeCompare(a.date||'')||Number(b.id)-Number(a.id); });
+          localStorage.setItem('dentalEntries', JSON.stringify(entries));
+        }
+        if(fbClinics) { clinics = Object.values(fbClinics); localStorage.setItem('dentalClinics', JSON.stringify(clinics)); }
+        if(fbPriceList) {
+          priceList = Object.values(fbPriceList);
+          DEFAULT_PRICE_LIST.forEach(function(def){ if(!priceList.find(function(p){return p.item===def.item;})) priceList.push(def); });
+          localStorage.setItem('dentalPriceList', JSON.stringify(priceList));
+        }
+        if(fbLabInfo) { Object.assign(labInfo, fbLabInfo); localStorage.setItem('dentalLabInfo', JSON.stringify(labInfo)); }
+        if(fbPayments) { Object.entries(fbPayments).forEach(function(kv){ localStorage.setItem('paid_'+kv[0], kv[1]); }); }
+        renderAll();
+        showSyncStatus('ok');
+        showToast('✓ Data loaded');
+      }).catch(function(e) {
+        showSyncStatus('offline');
+        showToast('⚠ ' + e.message.slice(0,40));
+      });
+    }
+  }, 3000);
+
+  // Entries listener
   window._fbOn('entries', function(data) {
-    if(!data) return;
-    entries = Object.values(data).map(function(e){ return Object.assign({},e,{id:Number(e.id)||e.id}); });
-    entries.sort(function(a,b){ return Number(b.id)-Number(a.id); });
-    localStorage.setItem('dentalEntries', JSON.stringify(entries));
-    renderRecordTable('d'); renderRecordTable('m');
-    renderMobRecent(); renderDeskRecent();
-    renderVoucherList();
-    showSyncStatus('ok');
+    if(data) {
+      entries = Object.values(data).map(function(e){ return Object.assign({},e,{id:Number(e.id)||e.id}); });
+      entries.sort(function(a,b){ return (b.date||''). localeCompare(a.date||'')||Number(b.id)-Number(a.id); });
+      localStorage.setItem('dentalEntries', JSON.stringify(entries));
+    }
+    if(initialLoad) {
+      clearTimeout(initialTimer);
+      initialLoad = false;
+      renderAll();
+      showSyncStatus('ok');
+    } else {
+      renderRecordTable('d'); renderRecordTable('m');
+      renderMobRecent(); renderDeskRecent();
+      renderVoucherList();
+    }
   });
+
+  // Clinics listener
   window._fbOn('clinics', function(data) {
     if(!data) return;
     clinics = Object.values(data);
     localStorage.setItem('dentalClinics', JSON.stringify(clinics));
     renderClinicTable(); populateDropdowns('d'); populateDropdowns('m');
   });
+
+  // Pricelist listener
+  window._fbOn('pricelist', function(data) {
+    if(!data) return;
+    priceList = Object.values(data);
+    DEFAULT_PRICE_LIST.forEach(function(def){ if(!priceList.find(function(p){return p.item===def.item;})) priceList.push(def); });
+    localStorage.setItem('dentalPriceList', JSON.stringify(priceList));
+    renderPriceTable();
+  });
+
+  // Labinfo listener
+  window._fbOn('labinfo', function(data) {
+    if(!data) return;
+    Object.assign(labInfo, data);
+    localStorage.setItem('dentalLabInfo', JSON.stringify(labInfo));
+    loadLabInfo();
+  });
+
+  // Payments listener
   window._fbOn('payments', function(data) {
     if(!data) return;
     Object.entries(data).forEach(function(kv){ localStorage.setItem('paid_'+kv[0], kv[1]); });
@@ -1872,7 +2070,9 @@ function renderVoucherMonth() {
 
 function getVoucherDoctors() {
   // Group entries by doctor/clinic for the current voucherMonth
-  const monthEntries = entries.filter(e => e.date && e.date.trim().startsWith(voucherMonth));
+  const monthEntries = entries
+    .filter(e => e.date && e.date.trim().startsWith(voucherMonth))
+    .sort((a,b) => (b.date||'').localeCompare(a.date||'')||Number(b.id)-Number(a.id));
 
   // First pass: group by doctor+clinic
   const map = {};
@@ -2272,7 +2472,7 @@ function buildLedgerHTML() {
     + '</div>';
 
   // Apply filters
-  var sorted = entries.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  var sorted = entries.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')||Number(b.id)-Number(a.id));
   if (lf.dateFrom)   sorted = sorted.filter(e=>(e.date||'') >= lf.dateFrom);
   if (lf.dateTo)     sorted = sorted.filter(e=>(e.date||'') <= lf.dateTo);
   if (lf.clinic)     sorted = sorted.filter(e=>e.clinicName===lf.clinic);
