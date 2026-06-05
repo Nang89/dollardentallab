@@ -5,6 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dollar Dental Lab</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, get, remove, onValue } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAnN2WIYWTUYrIxiSHBW7uhPqTP6DlGmwI",
+  authDomain: "dollardentallab-ced81.firebaseapp.com",
+  databaseURL: "https://dollardentallab-ced81-default-rtdb.firebaseio.com",
+  projectId: "dollardentallab-ced81",
+  storageBucket: "dollardentallab-ced81.firebasestorage.app",
+  messagingSenderId: "1014638385854",
+  appId: "1:1014638385854:web:665e4693a9886214b31cef"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+// Expose to global scope for use in main script
+window._fbSet    = (path, data) => set(ref(db, path), data);
+window._fbGet    = (path) => get(ref(db, path)).then(s => s.val());
+window._fbRemove = (path) => remove(ref(db, path));
+window._fbOn     = (path, cb) => onValue(ref(db, path), snap => cb(snap.val()));
+
+window.dispatchEvent(new Event('firebaseReady'));
+</script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -1530,7 +1555,7 @@ function loadLabInfo(){
 }
 function openLabModal(){['name','phone','email','hours','address','notes'].forEach(k=>document.getElementById('e-'+k).value=labInfo[k]||'');document.getElementById('lab-modal').classList.add('open');}
 function closeLabModal(){document.getElementById('lab-modal').classList.remove('open');}
-function saveLabInfo(){['name','phone','email','hours','address','notes'].forEach(k=>labInfo[k]=document.getElementById('e-'+k).value.trim());localStorage.setItem('dentalLabInfo',JSON.stringify(labInfo));loadLabInfo();closeLabModal();showToast('✓ Lab info saved');}
+function saveLabInfo(){['name','phone','email','hours','address','notes'].forEach(k=>labInfo[k]=document.getElementById('e-'+k).value.trim());localStorage.setItem('dentalLabInfo',JSON.stringify(labInfo));syncLabInfo();loadLabInfo();closeLabModal();showToast('✓ Lab info saved');}
 
 // ══ RECENT ══
 function renderMobRecent(){
@@ -1660,94 +1685,63 @@ function doChangePassword() {
   closeChangePw();
   showToast('✓ ' + (_cpRole==='admin'?'Admin':'Technician') + ' password changed!');
 }
-// ══ FIREBASE REALTIME ══
-const FB_DB_URL = 'https://dollardentallab-ced81-default-rtdb.firebaseio.com';
+// ══ FIREBASE SDK ══
+// Firebase functions exposed from module script
+async function fbSet(path, data) {
+  if(!window._fbSet) throw new Error('Firebase not ready');
+  return window._fbSet(path, data);
+}
+async function fbGet(path) {
+  if(!window._fbGet) throw new Error('Firebase not ready');
+  return window._fbGet(path);
+}
+async function fbRemove(path) {
+  if(!window._fbRemove) throw new Error('Firebase not ready');
+  return window._fbRemove(path);
+}
+function fbOn(path, cb) {
+  if(!window._fbOn) { setTimeout(() => fbOn(path, cb), 500); return; }
+  window._fbOn(path, cb);
+}
 
-// Write to Firebase
-async function fbWrite(path, data) {
+// ── Write single entry ──
+async function fbSaveEntry(entry) {
   try {
-    await fetch(FB_DB_URL + '/' + path + '.json', {
-      method: 'PUT',
-      mode: 'cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-  } catch(e) { console.error('fbWrite failed:', path, e.message); }
+    await fbSet('entries/' + String(entry.id), entry);
+    showSyncStatus('ok');
+  } catch(e) { console.error('fbSaveEntry failed:', e); showSyncStatus('offline'); }
 }
 
-// Setup real-time listeners using Server-Sent Events (Firebase streaming)
-function setupRealtimeListeners() {
-  showSyncStatus('syncing');
-
-  // Listen to entries
-  const entriesSource = new EventSource(FB_DB_URL + '/entries.json?timeout=30s');
-  entriesSource.addEventListener('put', function(e) {
-    try {
-      const d = JSON.parse(e.data);
-      if (d.data !== null) {
-        entries = Object.values(d.data).map(e => Object.assign({}, e, { id: Number(e.id)||e.id }));
-        entries.sort((a,b) => Number(b.id) - Number(a.id));
-        localStorage.setItem('dentalEntries', JSON.stringify(entries));
-        renderRecordTable('d');
-        renderRecordTable('m');
-        renderMobRecent();
-        renderDeskRecent();
-        renderVoucherList();
-        console.log('Entries updated:', entries.length);
-      }
-      showSyncStatus('ok');
-    } catch(err) { console.error('entries listener error:', err); }
-  });
-  entriesSource.onerror = function() { showSyncStatus('offline'); };
-
-  // Listen to clinics
-  const clinicsSource = new EventSource(FB_DB_URL + '/clinics.json?timeout=30s');
-  clinicsSource.addEventListener('put', function(e) {
-    try {
-      const d = JSON.parse(e.data);
-      if (d.data !== null) {
-        clinics = Object.values(d.data);
-        localStorage.setItem('dentalClinics', JSON.stringify(clinics));
-        renderClinicTable();
-        populateDropdowns('d');
-        populateDropdowns('m');
-      }
-    } catch(err) { console.error('clinics listener error:', err); }
-  });
-
-  // Listen to payments
-  const paymentsSource = new EventSource(FB_DB_URL + '/payments.json?timeout=30s');
-  paymentsSource.addEventListener('put', function(e) {
-    try {
-      const d = JSON.parse(e.data);
-      if (d.data !== null) {
-        Object.entries(d.data).forEach(([id, paid]) => {
-          localStorage.setItem('paid_' + id, paid);
-        });
-        renderRecordTable('d');
-        renderRecordTable('m');
-        renderVoucherList();
-      }
-    } catch(err) { console.error('payments listener error:', err); }
-  });
+// ── Delete single entry ──
+async function fbDeleteEntry(id) {
+  try {
+    await fbRemove('entries/' + String(id));
+    showSyncStatus('ok');
+  } catch(e) { console.error('fbDeleteEntry failed:', e); showSyncStatus('offline'); }
 }
 
-// Initial load then setup listeners
+// ── Write single payment ──
+async function fbSavePayment(id, paid) {
+  try {
+    await fbSet('payments/' + String(id), paid);
+  } catch(e) { console.error('fbSavePayment failed:', e); }
+}
+
+// ── Initial load ──
 async function loadFromCloud() {
   showSyncStatus('syncing');
   try {
-    // Test connection first
-    const testRes = await fetch(FB_DB_URL + '/.json', {mode:'cors'});
-    if (!testRes.ok) {
-      throw new Error('HTTP ' + testRes.status + ' - ' + testRes.statusText);
+    // Wait for Firebase SDK to be ready
+    if(!window._fbGet) {
+      await new Promise(resolve => window.addEventListener('firebaseReady', resolve, {once:true}));
     }
 
     const [fbEntries, fbClinics, fbPriceList, fbLabInfo, fbPayments] = await Promise.all([
-      fetch(FB_DB_URL + '/entries.json', {mode:'cors'}).then(r=>r.json()),
-      fetch(FB_DB_URL + '/clinics.json', {mode:'cors'}).then(r=>r.json()),
-      fetch(FB_DB_URL + '/pricelist.json', {mode:'cors'}).then(r=>r.json()),
-      fetch(FB_DB_URL + '/labinfo.json', {mode:'cors'}).then(r=>r.json()),
-      fetch(FB_DB_URL + '/payments.json', {mode:'cors'}).then(r=>r.json()),
+      fbGet('entries'),
+      fbGet('clinics'),
+      fbGet('pricelist'),
+      fbGet('labinfo'),
+      fbGet('payments'),
     ]);
 
     if (fbEntries) {
@@ -1773,59 +1767,67 @@ async function loadFromCloud() {
     }
 
     showSyncStatus('ok');
+    console.log('Firebase load OK — entries:', entries.length);
   } catch(e) {
     console.error('Firebase load failed:', e.message, e.name);
     showSyncStatus('offline');
-    showToast('⚠ ' + e.name + ': ' + e.message.slice(0,50));
+    showToast('⚠ ' + e.name + ': ' + e.message.slice(0,40));
     const le = JSON.parse(localStorage.getItem('dentalEntries')  ||'[]');
     const lc = JSON.parse(localStorage.getItem('dentalClinics')  ||'[]');
     const lp = JSON.parse(localStorage.getItem('dentalPriceList')||'[]');
+    const ll = JSON.parse(localStorage.getItem('dentalLabInfo')  ||'{}');
     if(le.length) entries  = le;
     if(lc.length) clinics  = lc;
-    if(lp.length) priceList = lp;
+    if(lp.length) { priceList = lp; DEFAULT_PRICE_LIST.forEach(def => { if(!priceList.find(p=>p.item===def.item)) priceList.push(def); }); }
+    if(Object.keys(ll).length) labInfo = ll;
   }
   renderAll();
-  // Start real-time listeners after initial load
   setupRealtimeListeners();
 }
 
-// Write to Firebase (called after any change)
+// ── Real-time listeners ──
+function setupRealtimeListeners() {
+  if(!window._fbOn) {
+    setTimeout(setupRealtimeListeners, 500);
+    return;
+  }
+  // Listen to entries
+  fbOn('entries', function(data) {
+    if(!data) return;
+    entries = Object.values(data).map(e => Object.assign({}, e, { id: Number(e.id)||e.id }));
+    entries.sort((a,b) => Number(b.id) - Number(a.id));
+    localStorage.setItem('dentalEntries', JSON.stringify(entries));
+    renderRecordTable('d');
+    renderRecordTable('m');
+    renderMobRecent();
+    renderDeskRecent();
+    renderVoucherList();
+    showSyncStatus('ok');
+    console.log('Entries updated:', entries.length);
+  });
+
+  // Listen to clinics
+  fbOn('clinics', function(data) {
+    if(!data) return;
+    clinics = Object.values(data);
+    localStorage.setItem('dentalClinics', JSON.stringify(clinics));
+    renderClinicTable();
+    populateDropdowns('d');
+    populateDropdowns('m');
+  });
+
+  // Listen to payments
+  fbOn('payments', function(data) {
+    if(!data) return;
+    Object.entries(data).forEach(([id, paid]) => localStorage.setItem('paid_'+id, paid));
+    renderRecordTable('d');
+    renderRecordTable('m');
+    renderVoucherList();
+  });
+}
+
+// ── Sync non-entry data ──
 let _writeTimer = null;
-// ── Write single entry (no conflict with other staff) ──
-async function fbSaveEntry(entry) {
-  try {
-    await fetch(FB_DB_URL + '/entries/' + String(entry.id) + '.json', {
-      method: 'PUT',
-      mode: 'cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(entry)
-    });
-    showSyncStatus('ok');
-  } catch(e) { showSyncStatus('offline'); }
-}
-
-// ── Delete single entry ──
-async function fbDeleteEntry(id) {
-  try {
-    await fetch(FB_DB_URL + '/entries/' + String(id) + '.json', { method: 'DELETE', mode: 'cors' });
-    showSyncStatus('ok');
-  } catch(e) { showSyncStatus('offline'); }
-}
-
-// ── Write single payment ──
-async function fbSavePayment(id, paid) {
-  try {
-    await fetch(FB_DB_URL + '/payments/' + String(id) + '.json', {
-      method: 'PUT',
-      mode: 'cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(paid)
-    });
-  } catch(e) { console.error('fbSavePayment failed:', e.message); }
-}
-
-// ── Sync non-entry data (clinics, pricelist, labinfo) ──
-// _writeTimer already declared above
 function syncToCloud() {
   clearTimeout(_writeTimer);
   _writeTimer = setTimeout(async function() {
@@ -1835,24 +1837,21 @@ function syncToCloud() {
       const priceObj = {};
       priceList.forEach((p,i) => { priceObj['item_'+i] = p; });
       await Promise.all([
-        fbWrite('clinics',   clinicsObj),
-        fbWrite('pricelist', priceObj),
+        fbSet('clinics',   clinicsObj),
+        fbSet('pricelist', priceObj),
       ]);
       showSyncStatus('ok');
     } catch(e) {
-      console.error('Sync failed:', e.message);
+      console.error('syncToCloud failed:', e);
       showSyncStatus('offline');
     }
   }, 800);
 }
 
-// ── Legacy full sync (used for labinfo) ──
 async function syncLabInfo() {
-  try {
-    await fbWrite('labinfo', Object.assign({}, labInfo));
-  } catch(e) { console.error('syncLabInfo failed:', e.message); }
+  try { await fbSet('labinfo', Object.assign({}, labInfo)); }
+  catch(e) { console.error('syncLabInfo failed:', e); }
 }
-
 function showSyncStatus(state) {
   const el = document.getElementById('sync-status');
   if (!el) return;
