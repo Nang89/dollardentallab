@@ -1774,9 +1774,9 @@ async function loadFromCloud() {
 
     showSyncStatus('ok');
   } catch(e) {
-    console.error('Firebase load failed:', e.message);
+    console.error('Firebase load failed:', e.message, e.name);
     showSyncStatus('offline');
-    showToast('⚠ Firebase: ' + e.message.slice(0,40));
+    showToast('⚠ ' + e.name + ': ' + e.message.slice(0,50));
     const le = JSON.parse(localStorage.getItem('dentalEntries')  ||'[]');
     const lc = JSON.parse(localStorage.getItem('dentalClinics')  ||'[]');
     const lp = JSON.parse(localStorage.getItem('dentalPriceList')||'[]');
