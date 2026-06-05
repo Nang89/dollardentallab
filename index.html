@@ -6,37 +6,97 @@
 <title>Dollar Dental Lab</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script>
-const _FB_URL = 'https://dollardentallab-ced81-default-rtdb.firebaseio.com';
+const _SB_URL = 'https://axyfvezumdkzgaqtoyjj.supabase.co/rest/v1';
+const _SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4eWZ2ZXp1bWRremdhcXRveWpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NjExMTcsImV4cCI6MjA5NjIzNzExN30.z-wwm6IaMFhZNNFuRIGsEHh33bOdo0IPhimmMEOpvKo';
+const _SB_HDR = { 'apikey': _SB_KEY, 'Authorization': 'Bearer ' + _SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
 
+// GET all rows from table
 window._fbGet = async function(path) {
-  const r = await fetch(_FB_URL + '/' + path + '.json');
-  return r.json();
+  const table = path.split('/')[0];
+  const r = await fetch(_SB_URL + '/' + table + '?order=id', { headers: _SB_HDR });
+  if(!r.ok) throw new Error('GET ' + table + ' failed: ' + r.status);
+  const rows = await r.json();
+  if(table === 'entries') {
+    const obj = {};
+    rows.forEach(e => { obj[e.id] = e; });
+    return Object.keys(obj).length ? obj : null;
+  }
+  if(table === 'clinics' || table === 'pricelist') {
+    const obj = {};
+    rows.forEach((r,i) => { obj[table+'_'+i] = r; });
+    return rows.length ? obj : null;
+  }
+  if(table === 'payments') {
+    const obj = {};
+    rows.forEach(r => { obj[r.entryId] = r.paid; });
+    return Object.keys(obj).length ? obj : null;
+  }
+  if(table === 'labinfo') return rows[0] || null;
+  return rows;
 };
+
+// SET (upsert) a single entry
 window._fbSet = async function(path, data) {
-  await fetch(_FB_URL + '/' + path + '.json', {
-    method: 'PUT',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(data)
-  });
+  const parts = path.split('/');
+  const table = parts[0];
+  if(table === 'entries') {
+    const r = await fetch(_SB_URL + '/entries?id=eq.' + encodeURIComponent(String(data.id)), {
+      method: 'DELETE', headers: _SB_HDR
+    });
+    await fetch(_SB_URL + '/entries', {
+      method: 'POST', headers: _SB_HDR, body: JSON.stringify(data)
+    });
+  } else if(table === 'clinics') {
+    await fetch(_SB_URL + '/clinics', { method: 'DELETE', headers: Object.assign({}, _SB_HDR, {'Prefer':''}) });
+    if(data && Object.keys(data).length) {
+      const rows = Object.values(data).map(c => ({ clinic:c.clinic||'', doctor:c.doctor||'', address:c.address||'', phone:c.phone||'', email:c.email||'' }));
+      await fetch(_SB_URL + '/clinics', { method: 'POST', headers: _SB_HDR, body: JSON.stringify(rows) });
+    }
+  } else if(table === 'pricelist') {
+    await fetch(_SB_URL + '/pricelist', { method: 'DELETE', headers: Object.assign({}, _SB_HDR, {'Prefer':''}) });
+    if(data && Object.keys(data).length) {
+      const rows = Object.values(data).map(p => ({ item:p.item||'', unit:p.unit||'', price:p.price||'' }));
+      await fetch(_SB_URL + '/pricelist', { method: 'POST', headers: _SB_HDR, body: JSON.stringify(rows) });
+    }
+  } else if(table === 'labinfo') {
+    await fetch(_SB_URL + '/labinfo?id=eq.1', { method: 'DELETE', headers: _SB_HDR });
+    await fetch(_SB_URL + '/labinfo', { method: 'POST', headers: _SB_HDR, body: JSON.stringify(Object.assign({id:1}, data)) });
+  } else if(table === 'payments') {
+    const entryId = parts[1];
+    await fetch(_SB_URL + '/payments?entryId=eq.' + encodeURIComponent(entryId), { method: 'DELETE', headers: _SB_HDR });
+    await fetch(_SB_URL + '/payments', { method: 'POST', headers: _SB_HDR, body: JSON.stringify({ entryId: entryId, paid: data }) });
+  }
 };
+
+// DELETE entry
 window._fbRemove = async function(path) {
-  await fetch(_FB_URL + '/' + path + '.json', { method: 'DELETE' });
+  const parts = path.split('/');
+  const table = parts[0];
+  const id = parts[1];
+  if(table === 'entries') {
+    await fetch(_SB_URL + '/entries?id=eq.' + encodeURIComponent(id), { method: 'DELETE', headers: _SB_HDR });
+  } else if(table === 'payments') {
+    await fetch(_SB_URL + '/payments?entryId=eq.' + encodeURIComponent(id), { method: 'DELETE', headers: _SB_HDR });
+  }
 };
+
+// Polling for real-time updates
 window._fbOn = function(path, cb) {
+  const table = path.split('/')[0];
   // Initial fetch
-  fetch(_FB_URL + '/' + path + '.json')
-    .then(function(r){ return r.json(); })
-    .then(function(data){ cb(data); })
-    .catch(function(e){ console.warn('fbOn fetch failed:', e); });
-  // Poll every 15 seconds for updates
+  window._fbGet(table).then(cb).catch(function(e){ console.warn('fbOn fetch failed:', e); });
+  // Poll every 5 seconds
   setInterval(function() {
-    fetch(_FB_URL + '/' + path + '.json')
-      .then(function(r){ return r.json(); })
-      .then(function(data){ cb(data); })
-      .catch(function(){});
-  }, 15000);
+    window._fbGet(table).then(cb).catch(function(){});
+  }, 5000);
 };
+
 window._fbReady = true;
+
+// Keep Supabase alive - ping every 4 days to prevent 7-day pause
+setInterval(function() {
+  fetch(_SB_URL + '/entries?limit=1', { headers: _SB_HDR }).catch(function(){});
+}, 4 * 24 * 60 * 60 * 1000);
 </script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1062,7 +1122,7 @@ function deskTab(name,btn) {
   document.querySelectorAll('.desk-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
-  btn.classList.add('active');
+  if(btn) btn.classList.add('active');
   document.getElementById('desk-page-title').textContent=tabLabels[name];
   if(name==='daily'){populateDropdowns('d');renderRecordTable('d');}
   if(name==='voucher'){renderVoucherList();}
@@ -1338,12 +1398,20 @@ localStorage.setItem('dentalEntries', JSON.stringify(entries));
   if(date===todayStr) localStorage.setItem(key, cnt);
 
   clearForm(pfx);
+  // Switch to the month of the added entry so it shows instantly
+  viewMonth['d'] = date.slice(0,7);
+  viewMonth['m'] = date.slice(0,7);
+  renderMonthLabel('d');
+  renderMonthLabel('m');
   renderRecordTable('d');
   renderRecordTable('m');
   renderMobRecent();
   renderDeskRecent();
+  // Update counters
+  document.getElementById('desk-today-num').textContent = entries.filter(e=>e.date===todayStr).length;
+  document.getElementById('desk-month-num').textContent = entries.filter(e=>e.date&&e.date.startsWith(todayStr.slice(0,7))).length;
   if(pfx==='m') closeMobForm();
-  showToast(caseType.includes('Denture') || caseType.includes('Flexible') ? '✓ Entry added (split records)!' : '✓ Entry added!');
+  showToast(caseType.includes('Denture') || caseType.includes('Flexible') ? '✓ Entry added (split records)' : '✓ Entry added');
 }
 
 function clearForm(pfx) {
@@ -1815,7 +1883,8 @@ async function loadFromCloud() {
   setupRealtimeListeners();
 }
 
-async function fetchAndRender() {
+async function fetchAndRender(retries) {
+  retries = retries || 0;
   try {
     var results = await Promise.all([
       window._fbGet('entries'),
@@ -1849,13 +1918,21 @@ async function fetchAndRender() {
       Object.entries(fbPayments).forEach(function(kv){ localStorage.setItem('paid_'+kv[0], kv[1]); });
     }
     renderAll();
+    populateDropdowns('d');
+    populateDropdowns('m');
     showSyncStatus('ok');
     console.log('Data loaded — entries:', entries.length);
   } catch(e) {
     console.error('fetchAndRender failed:', e);
-    showSyncStatus('offline');
-    showToast('⚠ Load failed: ' + e.message.slice(0,40));
-    renderAll();
+    if(retries < 3) {
+      // Retry after 2 seconds
+      showToast('⚠ Retrying... (' + (retries+1) + '/3)');
+      setTimeout(function(){ fetchAndRender(retries+1); }, 2000);
+    } else {
+      showSyncStatus('offline');
+      showToast('⚠ Load failed: ' + e.message.slice(0,40));
+      renderAll();
+    }
   }
 }
 
@@ -1904,7 +1981,7 @@ function setupRealtimeListeners() {
         renderVoucherList();
       }
     }).catch(function(){});
-  }, 30000);
+  }, 5000);
 }
 
 function setupRealtimeListeners() {
