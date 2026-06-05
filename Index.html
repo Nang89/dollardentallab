@@ -241,13 +241,12 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   .sidebar.collapsed .sidebar-footer-text { display: none; }
   .sidebar.collapsed .nav-item { justify-content: center; padding: 10px; }
   .sidebar.collapsed .sidebar-logo { padding: 14px 10px; justify-content: center; }
-  .sidebar.collapsed .sidebar-bottom { padding: 10px; }
+  .sidebar.collapsed .sidebar-bottom { padding: 10px; align-items: center; }
+  .sidebar-logo { padding: 22px 20px 20px; border-bottom: 1px solid #2e5c3e; flex-shrink: 0; }
+  .sidebar-nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 3px; flex: 1; overflow-y: auto; min-height: 0; }
+  .sidebar-bottom { padding: 10px 10px 14px; border-top: 1px solid #2e5c3e; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
   .desk-content { margin-left: 220px; transition: margin-left 0.2s ease; }
   .desk-content.expanded { margin-left: 54px; }
-  .sidebar-logo { padding: 22px 20px 20px; border-bottom: 1px solid var(--border); }
-  .sidebar-eyebrow { font-family: 'DM Mono', monospace; font-size: 0.58rem; letter-spacing: 0.18em; color: #a3d9b8; text-transform: uppercase; margin-bottom: 8px; }
-  .sidebar-title { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: #ffffff; line-height: 1.2; }
-  .sidebar-nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 3px; flex: 1; overflow-y: auto; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; cursor: pointer; border: none; background: transparent; color: #a3d9b8; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; width: 100%; text-align: left; transition: background 0.15s, color 0.15s; }
   .nav-item:hover { background: #2e5c3e; color: #ffffff; }
   .nav-item.active { background: #2e5c3e; color: #7ecf9a; }
