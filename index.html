@@ -27,8 +27,7 @@ window._fbSet    = (path, data) => set(ref(db, path), data);
 window._fbGet    = (path) => get(ref(db, path)).then(s => s.val());
 window._fbRemove = (path) => remove(ref(db, path));
 window._fbOn     = (path, cb) => onValue(ref(db, path), snap => cb(snap.val()));
-
-window.dispatchEvent(new Event('firebaseReady'));
+window._fbReady  = true;
 </script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1700,7 +1699,7 @@ async function fbRemove(path) {
   return window._fbRemove(path);
 }
 function fbOn(path, cb) {
-  if(!window._fbOn) { setTimeout(() => fbOn(path, cb), 500); return; }
+  if(!window._fbReady) { setTimeout(() => fbOn(path, cb), 200); return; }
   window._fbOn(path, cb);
 }
 
@@ -1731,10 +1730,13 @@ async function fbSavePayment(id, paid) {
 async function loadFromCloud() {
   showSyncStatus('syncing');
   try {
-    // Wait for Firebase SDK to be ready
-    if(!window._fbGet) {
-      await new Promise(resolve => window.addEventListener('firebaseReady', resolve, {once:true}));
+    // Wait for Firebase SDK to be ready (module script loads after main script)
+    let waited = 0;
+    while (!window._fbReady && waited < 5000) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      waited += 100;
     }
+    if (!window._fbReady) throw new Error('Firebase SDK not loaded after 5s');
 
     const [fbEntries, fbClinics, fbPriceList, fbLabInfo, fbPayments] = await Promise.all([
       fbGet('entries'),
@@ -1787,8 +1789,8 @@ async function loadFromCloud() {
 
 // ── Real-time listeners ──
 function setupRealtimeListeners() {
-  if(!window._fbOn) {
-    setTimeout(setupRealtimeListeners, 500);
+  if(!window._fbReady) {
+    setTimeout(setupRealtimeListeners, 200);
     return;
   }
   // Listen to entries
