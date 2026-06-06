@@ -13,7 +13,8 @@ const _SB_HDR = { 'apikey': _SB_KEY, 'Authorization': 'Bearer ' + _SB_KEY, 'Cont
 // GET all rows from table
 window._fbGet = async function(path) {
   const table = path.split('/')[0];
-  const r = await fetch(_SB_URL + '/' + table + '?order=id', { headers: _SB_HDR });
+  const orderCol = table === 'payments' ? 'entryId' : 'id';
+  const r = await fetch(_SB_URL + '/' + table + '?order=' + orderCol, { headers: _SB_HDR });
   if(!r.ok) throw new Error('GET ' + table + ' failed: ' + r.status);
   const rows = await r.json();
   if(table === 'entries') {
@@ -1422,8 +1423,6 @@ if (caseType === 'Upper Denture' || caseType === 'Lower Denture') {
   entries.unshift(entry); fbSaveEntry(entry);
 }
 localStorage.setItem('dentalEntries', JSON.stringify(entries));
-  const cnt = parseInt(localStorage.getItem(key)||'0') + (date===todayStr?1:0);
-  if(date===todayStr) localStorage.setItem(key, cnt);
 
   // Force reset all form fields immediately
   var fields = [pfx+'-clinic', pfx+'-doctor', pfx+'-case', pfx+'-shade', pfx+'-qty', pfx+'-patient', pfx+'-remark', pfx+'-teeth-manual'];
