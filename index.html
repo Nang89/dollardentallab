@@ -1696,7 +1696,7 @@ function submitEntry(pfx) {
   const date   = document.getElementById(pfx+'-date').value;
   const clinic = document.getElementById(pfx+'-clinic').value;
   const doctor = document.getElementById(pfx+'-doctor').value;
-  const qty    = document.getElementById(pfx+'-qty').value;
+
   const remark = document.getElementById(pfx+'-remark').value.trim();
 
   // Get case rows
@@ -1770,28 +1770,18 @@ function submitEntry(pfx) {
   showToast('✓ '+caseRows.length+' case(s) added');
 }
 function clearForm(pfx) {
-  document.getElementById(pfx+'-date').value    = todayStr;
-  document.getElementById(pfx+'-qty').value     = '';
-  document.getElementById(pfx+'-shade').value   = '';
-  document.getElementById(pfx+'-patient').value = '';
-  document.getElementById(pfx+'-remark').value  = '';
-  // Reset clinic dropdown to first option
+  var dateEl = document.getElementById(pfx+'-date');
+  if(dateEl) dateEl.value = todayStr;
+  var remarkEl = document.getElementById(pfx+'-remark');
+  if(remarkEl) remarkEl.value = '';
+  // Reset clinic dropdown
   var clinicSel = document.getElementById(pfx+'-clinic');
   if(clinicSel) { clinicSel.selectedIndex = 0; clinicSel.value = ''; }
   // Reset doctor dropdown
-  document.getElementById(pfx+'-doctor').innerHTML = '<option value="">— Select Doctor —</option>';
-  // Reset case dropdown to first option
-  var caseSel = document.getElementById(pfx+'-case');
-  if(caseSel) { caseSel.selectedIndex = 0; caseSel.value = ''; }
-  // Clear teeth
-  clearTeeth(pfx);
-  document.querySelectorAll('[id^="'+pfx+'-tooth-"]').forEach(function(b){
-    b.classList.remove('tooth-disabled');
-    b.classList.remove('sel');
-  });
-  // Reset category to fixed
+  var doctorSel = document.getElementById(pfx+'-doctor');
+  if(doctorSel) doctorSel.innerHTML = '<option value=>— Select Doctor —</option>';
+  // Reset category to fixed and case rows
   setCat(pfx, 'fixed');
-  // Reset case rows to 1 empty row
   var container = document.getElementById(pfx+'-case-rows');
   if(container) { container.innerHTML = ''; addCaseRow(pfx); }
 }
