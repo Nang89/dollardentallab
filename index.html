@@ -48,15 +48,15 @@ window._fbSet = async function(path, data) {
       method: 'POST', headers: _SB_HDR, body: JSON.stringify(data)
     });
   } else if(table === 'clinics') {
-    await fetch(_SB_URL + '/clinics', { method: 'DELETE', headers: Object.assign({}, _SB_HDR, {'Prefer':''}) });
+    await fetch(_SB_URL + '/clinics?id=gte.0', { method: 'DELETE', headers: _SB_HDR });
     if(data && Object.keys(data).length) {
       const rows = Object.values(data).map(c => ({ clinic:c.clinic||'', doctor:c.doctor||'', address:c.address||'', phone:c.phone||'', email:c.email||'' }));
       await fetch(_SB_URL + '/clinics', { method: 'POST', headers: _SB_HDR, body: JSON.stringify(rows) });
     }
   } else if(table === 'pricelist') {
-    await fetch(_SB_URL + '/pricelist', { method: 'DELETE', headers: Object.assign({}, _SB_HDR, {'Prefer':''}) });
+    await fetch(_SB_URL + '/pricelist?id=gte.0', { method: 'DELETE', headers: _SB_HDR });
     if(data && Object.keys(data).length) {
-      const rows = Object.values(data).map(p => ({ item:p.item||'', unit:p.unit||'', price:p.price||'' }));
+      const rows = Object.values(data).map(p => ({ item:p.item||'', unit:p.unit||'', price:p.price||'', category:p.category||'fixed' }));
       await fetch(_SB_URL + '/pricelist', { method: 'POST', headers: _SB_HDR, body: JSON.stringify(rows) });
     }
   } else if(table === 'labinfo') {
@@ -387,8 +387,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   .desk-placeholder .ptitle { font-size: 1rem; color: var(--text); font-family: 'DM Serif Display', serif; }
 
   /* Desktop daily layout: form left, table right below */
-  .daily-layout { display: grid; grid-template-columns: 480px 1fr; gap: 20px; align-items: start; }
-  .daily-form-col { position: sticky; top: 0; }
+  /* daily-layout removed - now uses full-width table with modal */
   .form-row { grid-template-columns: 1fr 1fr; }
 }
 
@@ -625,8 +624,14 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
             <select class="f-select" id="m-doctor"><option value="">— Select Doctor —</option></select>
           </div>
           <div class="field-wrap">
-            <label class="field-lbl" for="m-case">Case Type <span class="req">*</span></label>
-            <select class="f-select" id="m-case"><option value="">— Select Case —</option></select>
+            <div class="field-wrap">
+              <label class="field-lbl" for="m-case">Case Type <span class="req">*</span></label>
+              <div style="display:flex;gap:6px;margin-bottom:6px;">
+                <button type="button" id="m-cat-fixed" onclick="setCat('m','fixed')" style="flex:1;padding:6px;border:2px solid #16a34a;border-radius:6px;background:#e8f5ee;color:#16a34a;font-size:0.78rem;cursor:pointer;font-weight:600;">🔩 Fixed</button>
+                <button type="button" id="m-cat-removable" onclick="setCat('m','removable')" style="flex:1;padding:6px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.78rem;cursor:pointer;">🦷 Removable</button>
+              </div>
+              <select class="f-select" id="m-case"><option value="">— Select Case —</option></select>
+            </div>
           </div>
           <div class="form-row two">
             <div class="field-wrap"><label class="field-lbl" for="m-shade">Shade</label><input type="text" class="f-input" id="m-shade" placeholder="e.g. A3"/></div>
@@ -801,59 +806,68 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
     <!-- Daily Record Tab -->
     <div class="desk-content desk-tab" id="tab-daily">
-      <div class="daily-layout">
-        <!-- Left: Form -->
-        <div class="daily-form-col">
-          <div class="form-card">
-            <div class="form-card-hdr">New Entry</div>
-<div class="form-body">
-<div class="form-row">
-<div class="field-wrap"><label class="field-lbl" for="d-date">Date <span class="req">*</span></label><input type="date" class="f-input" id="d-date"/></div>
-<div class="field-wrap"><label class="field-lbl" for="d-qty">Quantity</label><input type="number" class="f-input" id="d-qty" min="1" placeholder="e.g. 3"/></div>
-</div>
-<div class="form-row">
-<div class="field-wrap"><label class="field-lbl" for="d-clinic">Clinic Name <span class="req">*</span></label><select class="f-select" id="d-clinic" onchange="onClinicChange('d')"><option value="">— Select Clinic —</option></select></div>
-<div class="field-wrap"><label class="field-lbl" for="d-doctor">Doctor Name <span class="req">*</span></label><select class="f-select" id="d-doctor"><option value="">— Select Doctor —</option></select></div>
-</div>
-<div class="form-row">
-<div class="field-wrap"><label class="field-lbl" for="d-case">Case Type <span class="req">*</span></label><select class="f-select" id="d-case"><option value="">— Select Case —</option></select></div>
-<div class="field-wrap"><label class="field-lbl" for="d-shade">Shade</label><input type="text" class="f-input" id="d-shade" placeholder="e.g. A3"/></div>
-</div>
-<div class="field-wrap"><label class="field-lbl" for="d-patient">Patient Name</label><input type="text" class="f-input" id="d-patient" placeholder="e.g. John"/></div>
-<div class="field-wrap">
-<div class="field-lbl" role="group" aria-label="Teeth No.">Teeth No.</div>
-<div class="teeth-wrap">
-<div class="teeth-display empty" id="d-teeth-display">No teeth selected</div>
-<div class="teeth-diagram" id="d-teeth-diagram"></div>
-<div class="teeth-manual-row">
-<input type="text" id="d-teeth-manual" placeholder="Or type: 11 12 21 22" oninput="syncManual('d')"/>
-<button class="teeth-clear-btn" onclick="clearTeeth('d')">Clear</button>
-</div>
-</div>
-</div>
-<div class="field-wrap"><label class="field-lbl" for="d-remark">Remark</label><textarea class="f-textarea" id="d-remark" placeholder="Any notes..."></textarea></div>
-<button class="submit-btn" onclick="submitEntry('d')">+ Add to Record</button>
-</div>
-</div>
-</div>
+      <!-- Full width table with Add Record button -->
+      <div class="tbl-section">
+        <div class="tbl-hdr">
+          <span class="tbl-hdr-title">Monthly Records</span>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="month-nav">
+              <button class="month-nav-btn" onclick="changeMonth(-1,'d')">‹</button>
+              <span class="month-label" id="d-month-label">—</span>
+              <button class="month-nav-btn" onclick="changeMonth(1,'d')">›</button>
+            </div>
+            <button onclick="openDeskEntryModal()" style="background:#16a34a;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:0.85rem;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;">+ Add Record</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead><tr><th>No</th><th>Date</th><th>Clinic</th><th>Doctor</th><th>Patient</th><th>Case</th><th>Shade</th><th>Teeth No.</th><th>Qty</th><th>Remark</th><th></th></tr></thead>
+            <tbody id="d-record-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
-        <!-- Right: Monthly Records Table -->
-        <div>
-          <div class="tbl-section">
-            <div class="tbl-hdr">
-              <span class="tbl-hdr-title">Monthly Records</span>
-              <div class="month-nav">
-                <button class="month-nav-btn" onclick="changeMonth(-1,'d')">‹</button>
-                <span class="month-label" id="d-month-label">—</span>
-                <button class="month-nav-btn" onclick="changeMonth(1,'d')">›</button>
+    <!-- Desktop Entry Modal -->
+    <div class="modal-overlay" id="desk-entry-modal" style="z-index:9998;">
+      <div style="background:#fff;border-radius:14px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div class="form-card-hdr" style="border-radius:14px 14px 0 0;">New Entry</div>
+        <div class="form-body">
+          <div class="form-row">
+            <div class="field-wrap"><label class="field-lbl" for="d-date">Date <span class="req">*</span></label><input type="date" class="f-input" id="d-date"/></div>
+            <div class="field-wrap"><label class="field-lbl" for="d-qty">Quantity</label><input type="number" class="f-input" id="d-qty" min="1" placeholder="e.g. 3"/></div>
+          </div>
+          <div class="form-row">
+            <div class="field-wrap"><label class="field-lbl" for="d-clinic">Clinic Name <span class="req">*</span></label><select class="f-select" id="d-clinic" onchange="onClinicChange('d')"><option value="">— Select Clinic —</option></select></div>
+            <div class="field-wrap"><label class="field-lbl" for="d-doctor">Doctor Name <span class="req">*</span></label><select class="f-select" id="d-doctor"><option value="">— Select Doctor —</option></select></div>
+          </div>
+          <div class="form-row">
+            <div class="field-wrap">
+              <label class="field-lbl" for="d-case">Case Type <span class="req">*</span></label>
+              <div style="display:flex;gap:6px;margin-bottom:6px;">
+                <button type="button" id="d-cat-fixed" onclick="setCat('d','fixed')" style="flex:1;padding:6px;border:2px solid #16a34a;border-radius:6px;background:#e8f5ee;color:#16a34a;font-size:0.78rem;cursor:pointer;font-weight:600;">🔩 Fixed</button>
+                <button type="button" id="d-cat-removable" onclick="setCat('d','removable')" style="flex:1;padding:6px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.78rem;cursor:pointer;">🦷 Removable</button>
+              </div>
+              <select class="f-select" id="d-case"><option value="">— Select Case —</option></select>
+            </div>
+            <div class="field-wrap"><label class="field-lbl" for="d-shade">Shade</label><input type="text" class="f-input" id="d-shade" placeholder="e.g. A3"/></div>
+          </div>
+          <div class="field-wrap"><label class="field-lbl" for="d-patient">Patient Name</label><input type="text" class="f-input" id="d-patient" placeholder="e.g. John"/></div>
+          <div class="field-wrap">
+            <div class="field-lbl" role="group" aria-label="Teeth No.">Teeth No.</div>
+            <div class="teeth-wrap">
+              <div class="teeth-display empty" id="d-teeth-display">No teeth selected</div>
+              <div class="teeth-diagram" id="d-teeth-diagram"></div>
+              <div class="teeth-manual-row">
+                <input type="text" id="d-teeth-manual" placeholder="Or type: 11 12 21 22" oninput="syncManual('d')"/>
+                <button class="teeth-clear-btn" onclick="clearTeeth('d')">Clear</button>
               </div>
             </div>
-            <div style="overflow-x:auto;">
-              <table class="data-table">
-                <thead><tr><th>No</th><th>Date</th><th>Clinic</th><th>Doctor</th><th>Patient</th><th>Case</th><th>Shade</th><th>Teeth No.</th><th>Qty</th><th>Remark</th><th></th></tr></thead>
-                <tbody id="d-record-body"></tbody>
-              </table>
-            </div>
+          </div>
+          <div class="field-wrap"><label class="field-lbl" for="d-remark">Remark</label><textarea class="f-textarea" id="d-remark" placeholder="Any notes..."></textarea></div>
+          <div style="display:flex;gap:10px;">
+            <button class="modal-cancel" onclick="closeDeskEntryModal()" style="flex:1;">Cancel</button>
+            <button class="submit-btn" onclick="submitEntry('d')" style="flex:2;">+ Add to Record</button>
           </div>
         </div>
       </div>
@@ -940,6 +954,12 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   <div class="modal">
     <div class="modal-title">Add New Price Item</div>
     <div class="modal-field"><label>Item / Case Type *</label><input type="text" id="p-item" placeholder="e.g. FCZ Crown"/></div>
+    <div class="modal-field"><label>Category *</label>
+      <select id="p-category" class="f-select">
+        <option value="fixed">🔩 Fixed</option>
+        <option value="removable">🦷 Removable</option>
+      </select>
+    </div>
     <div class="modal-grid2">
       <div class="modal-field"><label>Unit</label><input type="text" id="p-unit" placeholder="e.g. per tooth"/></div>
       <div class="modal-field"><label>Price (MMK)</label><input type="number" id="p-price" placeholder="e.g. 150000"/></div>
@@ -1011,37 +1031,38 @@ const monthKey = todayStr.slice(0,7);
 let entries   = JSON.parse(localStorage.getItem('dentalEntries')   || '[]');
 let clinics   = JSON.parse(localStorage.getItem('dentalClinics')   || '[]');
 const DEFAULT_PRICE_LIST = [
-  { item: 'Full Contour Zirconia',          unit: 'per unit',  price: '65000'  },
-  { item: 'Multilayer Zirconia (4D Pro)',    unit: 'per unit',  price: '75000'  },
-  { item: 'Porcelain Fused to Zirconia',    unit: 'per unit',  price: '85000'  },
-  { item: 'Zirconia Veneer',                unit: 'per unit',  price: '100000' },
-  { item: 'Zirconia Post and Core',         unit: 'per unit',  price: '60000'  },
-  { item: 'PMMA',                           unit: 'per unit',  price: '20000'  },
-  { item: 'PMMA Multilayer',                unit: 'per unit',  price: '35000'  },
-  { item: 'Dental Model Half (U or L)',     unit: 'per cast',  price: '8000'   },
-  { item: 'Dental Model Half (U and L)',    unit: 'per cast',  price: '15000'  },
-  { item: 'Dental Model One Cast (U or L)', unit: 'per cast',  price: '15000'  },
-  { item: 'Dental Model Full (U and L)',    unit: 'per cast',  price: '30000'  },
-  { item: 'Acrylic Denture Base (QC20)',    unit: 'per unit',  price: '12000'  },
-  { item: 'Acrylic Teeth',                  unit: 'per unit',  price: '6000'   },
-  { item: 'Acrylic Full/Full',              unit: 'per set',   price: '150000' },
-  { item: 'Flexible Base + One Unit',       unit: 'per unit',  price: '45000'  },
-  { item: 'Flexible Add One Unit',          unit: 'per unit',  price: '6000'   },
-  { item: 'Flexible Full/Full',             unit: 'per set',   price: '220000' },
-  { item: 'Acrylic Special Tray + Block',   unit: 'per cast',  price: '12000'  },
-  { item: 'Rebasing (Heat Cure)',           unit: 'per cast',  price: '30000'  },
-  { item: 'Tooth Addition Japan',           unit: 'per tooth', price: '6000'   },
-  { item: 'Clasp Addition',                 unit: 'per unit',  price: '10000'  },
-  { item: 'Repair',                         unit: 'per case',  price: '10000'  },
-  { item: 'Clear Retainer (U+L)',           unit: 'per set',   price: '40000'  },
-  { item: 'Bleaching Tray Soft (U+L)',      unit: 'per set',   price: '40000'  },
-  { item: 'Reinforced Palatal/Lingual Bar', unit: 'per unit',  price: '15000'  },
+  { item: 'Full Contour Zirconia',          unit: 'per unit',  price: '65000',  category: 'fixed'     },
+  { item: 'Multilayer Zirconia (4D Pro)',    unit: 'per unit',  price: '75000',  category: 'fixed'     },
+  { item: 'Porcelain Fused to Zirconia',    unit: 'per unit',  price: '85000',  category: 'fixed'     },
+  { item: 'Zirconia Veneer',                unit: 'per unit',  price: '100000', category: 'fixed'     },
+  { item: 'Zirconia Post and Core',         unit: 'per unit',  price: '60000',  category: 'fixed'     },
+  { item: 'PMMA',                           unit: 'per unit',  price: '20000',  category: 'fixed'     },
+  { item: 'PMMA Multilayer',                unit: 'per unit',  price: '35000',  category: 'fixed'     },
+  { item: 'Dental Model Half (U or L)',     unit: 'per cast',  price: '8000',   category: 'fixed'     },
+  { item: 'Dental Model Half (U and L)',    unit: 'per cast',  price: '15000',  category: 'fixed'     },
+  { item: 'Dental Model One Cast (U or L)', unit: 'per cast',  price: '15000',  category: 'fixed'     },
+  { item: 'Dental Model Full (U and L)',    unit: 'per cast',  price: '30000',  category: 'fixed'     },
+  { item: 'Acrylic Denture Base (QC20)',    unit: 'per unit',  price: '12000',  category: 'removable' },
+  { item: 'Acrylic Teeth',                  unit: 'per unit',  price: '6000',   category: 'removable' },
+  { item: 'Acrylic Full/Full',              unit: 'per set',   price: '150000', category: 'removable' },
+  { item: 'Flexible Base + One Unit',       unit: 'per unit',  price: '45000',  category: 'removable' },
+  { item: 'Flexible Add One Unit',          unit: 'per unit',  price: '6000',   category: 'removable' },
+  { item: 'Flexible Full/Full',             unit: 'per set',   price: '220000', category: 'removable' },
+  { item: 'Acrylic Special Tray + Block',   unit: 'per cast',  price: '12000',  category: 'removable' },
+  { item: 'Rebasing (Heat Cure)',           unit: 'per cast',  price: '30000',  category: 'removable' },
+  { item: 'Tooth Addition Japan',           unit: 'per tooth', price: '6000',   category: 'removable' },
+  { item: 'Clasp Addition',                 unit: 'per unit',  price: '10000',  category: 'removable' },
+  { item: 'Repair',                         unit: 'per case',  price: '10000',  category: 'removable' },
+  { item: 'Clear Retainer (U+L)',           unit: 'per set',   price: '40000',  category: 'removable' },
+  { item: 'Bleaching Tray Soft (U+L)',      unit: 'per set',   price: '40000',  category: 'removable' },
+  { item: 'Reinforced Palatal/Lingual Bar', unit: 'per unit',  price: '15000',  category: 'removable' },
 ];
 let priceList = JSON.parse(localStorage.getItem('dentalPriceList') || '[]');
-// Merge default prices - add any missing items
+// Merge default prices - add any missing items and apply category
 DEFAULT_PRICE_LIST.forEach(function(def) {
   const exists = priceList.find(function(p) { return p.item === def.item; });
   if (!exists) priceList.push(def);
+  else if(!exists.category) exists.category = def.category;
 });
 localStorage.setItem('dentalPriceList', JSON.stringify(priceList));
 let labInfo   = JSON.parse(localStorage.getItem('dentalLabInfo')   || '{}');
@@ -1094,7 +1115,7 @@ window.addEventListener('DOMContentLoaded', function() {
   // Load data from Firebase
   loadFromCloud();
 
-  var modals = ['clinic-modal','price-modal','lab-modal','voucher-view-modal'];
+  var modals = ['clinic-modal','price-modal','lab-modal','voucher-view-modal','desk-entry-modal'];
   modals.forEach(function(id){
     var el=document.getElementById(id);
     if(el) el.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
@@ -1146,6 +1167,17 @@ function logoutApp() {
   if(main)    main.style.marginLeft = '220px';
 }
 
+
+function openDeskEntryModal() {
+  populateDropdowns('d');
+  renderMonthLabel('d');
+  document.getElementById('desk-entry-modal').classList.add('open');
+  setTimeout(function(){ document.getElementById('d-date').focus(); }, 100);
+}
+
+function closeDeskEntryModal() {
+  document.getElementById('desk-entry-modal').classList.remove('open');
+}
 
 function deskTab(name,btn) {
   document.querySelectorAll('.desk-tab').forEach(t=>t.classList.remove('active'));
@@ -1248,6 +1280,72 @@ function clearTeeth(pfx) {
 }
 
 // ══ POPULATE DROPDOWNS ══
+// Track selected category per form prefix
+var selectedCat = { d: 'fixed', m: 'fixed' };
+
+function setCat(pfx, cat) {
+  selectedCat[pfx] = cat;
+  // Update button styles
+  var fixedBtn = document.getElementById(pfx+'-cat-fixed');
+  var remBtn   = document.getElementById(pfx+'-cat-removable');
+  if(fixedBtn) {
+    fixedBtn.style.borderColor  = cat==='fixed' ? '#16a34a' : '#e2e8f0';
+    fixedBtn.style.background   = cat==='fixed' ? '#e8f5ee' : '#f8f9fb';
+    fixedBtn.style.color        = cat==='fixed' ? '#16a34a' : '#64748b';
+    fixedBtn.style.fontWeight   = cat==='fixed' ? '600' : '400';
+  }
+  if(remBtn) {
+    remBtn.style.borderColor    = cat==='removable' ? '#16a34a' : '#e2e8f0';
+    remBtn.style.background     = cat==='removable' ? '#e8f5ee' : '#f8f9fb';
+    remBtn.style.color          = cat==='removable' ? '#16a34a' : '#64748b';
+    remBtn.style.fontWeight     = cat==='removable' ? '600' : '400';
+  }
+  // Reset case dropdown and repopulate with category filter
+  var caseSel = document.getElementById(pfx+'-case');
+  if(caseSel) {
+    caseSel.innerHTML = '<option value="">— Select Case —</option>';
+    populateCaseDropdown(pfx, cat);
+  }
+}
+
+function populateCaseDropdown(pfx, cat) {
+  var caseSel = document.getElementById(pfx+'-case');
+  if(!caseSel) return;
+  var prevCase = caseSel.value;
+  caseSel.innerHTML = '<option value="">— Select Case —</option>';
+
+  if(cat === 'removable') {
+    // Removable special options
+    var remSpecial = [
+      { value: 'Upper Denture',  label: '🦷 Upper Denture'  },
+      { value: 'Lower Denture',  label: '🦷 Lower Denture'  },
+      { value: 'Upper Flexible', label: '🦷 Upper Flexible' },
+      { value: 'Lower Flexible', label: '🦷 Lower Flexible' },
+    ];
+    remSpecial.forEach(function(d) {
+      var opt = document.createElement('option');
+      opt.value = d.value; opt.textContent = d.label;
+      caseSel.appendChild(opt);
+    });
+    // Removable price list items (exclude auto-split ones)
+    var HIDDEN = ['Acrylic Denture Base (QC20)', 'Acrylic Teeth', 'Flexible Base + One Unit', 'Flexible Add One Unit'];
+    priceList.filter(function(p){ return p.category === 'removable' && HIDDEN.indexOf(p.item) === -1; }).forEach(function(p) {
+      var opt = document.createElement('option');
+      opt.value = p.item; opt.textContent = p.item;
+      caseSel.appendChild(opt);
+    });
+  } else {
+    // Fixed price list items
+    priceList.filter(function(p){ return (p.category||'fixed') === 'fixed'; }).forEach(function(p) {
+      var opt = document.createElement('option');
+      opt.value = p.item; opt.textContent = p.item;
+      caseSel.appendChild(opt);
+    });
+  }
+  if(prevCase) caseSel.value = prevCase;
+  caseSel.onchange = function() { onCaseChange(pfx); };
+}
+
 function populateDropdowns(pfx) {
   // Clinics
   const clinicSel = document.getElementById(pfx+'-clinic');
@@ -1281,34 +1379,8 @@ function populateDropdowns(pfx) {
     doctorSel.onchange = function() { onDoctorChange(pfx); };
   }
 
-  // Cases from price list + special denture types
-  const caseSel = document.getElementById(pfx+'-case');
-  if(!caseSel) return;
-  const prevCase = caseSel.value;
-  caseSel.innerHTML = '<option value="">— Select Case —</option>';
-  // Add special denture and flexible options first
-  const dentureOpts = [
-    { value: 'Upper Denture',  label: '🦷 Upper Denture'  },
-    { value: 'Lower Denture',  label: '🦷 Lower Denture'  },
-    { value: 'Upper Flexible', label: '🦷 Upper Flexible' },
-    { value: 'Lower Flexible', label: '🦷 Lower Flexible' },
-  ];
-  dentureOpts.forEach(function(d) {
-    const opt = document.createElement('option');
-    opt.value = d.value; opt.textContent = d.label;
-    caseSel.appendChild(opt);
-  });
-  // Price list items (hide items handled by special case types)
-  const HIDDEN_ITEMS = ['Acrylic Denture Base (QC20)', 'Acrylic Teeth', 'Flexible Base + One Unit', 'Flexible Add One Unit'];
-  priceList.forEach(p => {
-    if(!p.item) return;
-    if(HIDDEN_ITEMS.indexOf(p.item) !== -1) return; // skip
-    const opt = document.createElement('option');
-    opt.value = p.item; opt.textContent = p.item;
-    caseSel.appendChild(opt);
-  });
-  if(prevCase) caseSel.value = prevCase;
-  caseSel.onchange = function() { onCaseChange(pfx); };
+  // Cases — use category-filtered function
+  populateCaseDropdown(pfx, selectedCat[pfx] || "fixed");
 }
 
 function onCaseChange(pfx) {
@@ -1448,6 +1520,7 @@ localStorage.setItem('dentalEntries', JSON.stringify(entries));
   document.getElementById('desk-today-num').textContent = entries.filter(e=>e.date===todayStr).length;
   document.getElementById('desk-month-num').textContent = entries.filter(e=>e.date&&e.date.startsWith(todayStr.slice(0,7))).length;
   if(pfx==='m') closeMobForm();
+  if(pfx==='d') closeDeskEntryModal();
   showToast(caseType.includes('Denture') || caseType.includes('Flexible') ? '✓ Entry added (split records)' : '✓ Entry added');
 }
 
@@ -1471,6 +1544,8 @@ function clearForm(pfx) {
     b.classList.remove('tooth-disabled');
     b.classList.remove('sel');
   });
+  // Reset category to fixed
+  setCat(pfx, 'fixed');
 }
 
 // ══ MONTHLY RECORDS ══
@@ -1645,18 +1720,34 @@ function renderClinicTable() {
 
 // ══ PRICE TABLE ══
 function renderPriceTable() {
-  const empty='<tr><td colspan="5" class="tbl-empty">No items yet — click "+ Add Item".</td></tr>';
-  if(!priceList.length){document.getElementById('desk-price-body').innerHTML=empty;document.getElementById('mob-price-body').innerHTML=empty;return;}
-  const rows=priceList.map((p,i)=>`<tr>
-    <td class="cell-no">${i+1}</td>
-    <td><input class="cell-input" value="${esc(p.item)}" onchange="editPrice(${i},'item',this.value)" placeholder="Item"/></td>
-    <td><input class="cell-input" value="${esc(p.unit)}" onchange="editPrice(${i},'unit',this.value)" placeholder="Unit"/></td>
-    <td><input class="cell-input" type="number" value="${p.price||''}" onchange="editPrice(${i},'price',this.value)" style="font-family:'DM Mono',monospace;" placeholder="0"/></td>
-    <td class="del-cell"><button class="del-btn" onclick="deletePrice(${i})">✕</button></td></tr>`).join('');
-  document.getElementById('desk-price-body').innerHTML=rows;
-  document.getElementById('mob-price-body').innerHTML=rows;
+  var fixed     = priceList.filter(function(p){ return (p.category||"fixed")==="fixed"; });
+  var removable = priceList.filter(function(p){ return p.category==="removable"; });
+  function buildRows(list) {
+    if(!list.length) return "<tr><td colspan=5 class=tbl-empty>No items.</td></tr>";
+    return list.map(function(p) {
+      var gi = priceList.indexOf(p);
+      var item = esc(p.item); var unit = esc(p.unit); var price = p.price||"";
+      return [
+        "<tr>",
+        "<td class=cell-no>"+(gi+1)+"</td>",
+        "<td><input class=cell-input value='"+ item +"' onchange='editPrice("+ gi +",&quot;item&quot;,this.value)'/></td>",
+        "<td><input class=cell-input value='"+ unit +"' onchange='editPrice("+ gi +",&quot;unit&quot;,this.value)'/></td>",
+        "<td><input class=cell-input type=number value='"+ price +"' onchange='editPrice("+ gi +",&quot;price&quot;,this.value)'/></td>",
+        "<td class=del-cell><button class=del-btn onclick='deletePrice("+ gi +")'>✕</button></td>",
+        "</tr>"
+      ].join("");
+    }).join("");
+  }
+  var hdrStyle = "background:#1a3324;color:#7ecf9a;font-size:0.65rem;letter-spacing:0.1em;padding:8px 12px;text-transform:uppercase;";
+  var content = "<tr><td colspan=5 style='"+ hdrStyle +"'>🔩 Fixed</td></tr>"
+    + buildRows(fixed)
+    + "<tr><td colspan=5 style='"+ hdrStyle +"'>🦷 Removable</td></tr>"
+    + buildRows(removable);
+  var d = document.getElementById("desk-price-body");
+  var m = document.getElementById("mob-price-body");
+  if(d) d.innerHTML = content;
+  if(m) m.innerHTML = content;
 }
-
 // ══ CLINIC CRUD ══
 function openClinicModal(){clearClinicForm();document.getElementById('clinic-modal').classList.add('open');setTimeout(()=>document.getElementById('c-clinic').focus(),50);}
 function closeClinicModal(){document.getElementById('clinic-modal').classList.remove('open');}
@@ -1708,14 +1799,15 @@ function deleteClinic(i){showConfirm('Delete Clinic?','Are you sure you want to 
 // ══ PRICE CRUD ══
 function openPriceModal(){clearPriceForm();document.getElementById('price-modal').classList.add('open');setTimeout(()=>document.getElementById('p-item').focus(),50);}
 function closePriceModal(){document.getElementById('price-modal').classList.remove('open');}
-function clearPriceForm(){['p-item','p-unit','p-price'].forEach(id=>document.getElementById(id).value='');}
+function clearPriceForm(){["p-item","p-unit","p-price"].forEach(id=>document.getElementById(id).value="");document.getElementById("p-category").value="fixed";}
 function savePrice(){
-  const item=document.getElementById('p-item').value.trim();
-  if(!item){document.getElementById('p-item').focus();return;}
-  priceList.push({item,unit:document.getElementById('p-unit').value.trim(),price:document.getElementById('p-price').value.trim()});
+  const item=document.getElementById("p-item").value.trim();
+  if(!item){document.getElementById("p-item").focus();return;}
+  const category=document.getElementById("p-category").value||"fixed";
+  priceList.push({item,unit:document.getElementById("p-unit").value.trim(),price:document.getElementById("p-price").value.trim(),category});
   persistAll();renderPriceTable();closePriceModal();
-  populateDropdowns('d');populateDropdowns('m');
-  showToast('✓ Price item added');
+  populateDropdowns("d");populateDropdowns("m");
+  showToast("✓ Price item added");
 }
 function editPrice(i,field,val){priceList[i][field]=val;persistAll();}
 function deletePrice(i){showConfirm('Delete Item?','Are you sure you want to delete "'+priceList[i].item+'"?',function(){priceList.splice(i,1);persistAll();renderPriceTable();populateDropdowns('d');populateDropdowns('m');showToast('Item deleted');});}
@@ -1952,7 +2044,7 @@ async function fetchAndRender(retries) {
     }
     if(fbPriceList) {
       priceList = Object.values(fbPriceList);
-      DEFAULT_PRICE_LIST.forEach(function(def){ if(!priceList.find(function(p){return p.item===def.item;})) priceList.push(def); });
+      DEFAULT_PRICE_LIST.forEach(function(def){ var ex=priceList.find(function(p){return p.item===def.item;}); if(!ex) priceList.push(def); else if(!ex.category) ex.category=def.category; });
       localStorage.setItem('dentalPriceList', JSON.stringify(priceList));
     }
     if(fbLabInfo) {
@@ -2055,7 +2147,7 @@ function setupRealtimeListeners() {
         if(fbClinics) { clinics = Object.values(fbClinics); localStorage.setItem('dentalClinics', JSON.stringify(clinics)); }
         if(fbPriceList) {
           priceList = Object.values(fbPriceList);
-          DEFAULT_PRICE_LIST.forEach(function(def){ if(!priceList.find(function(p){return p.item===def.item;})) priceList.push(def); });
+          DEFAULT_PRICE_LIST.forEach(function(def){ var ex=priceList.find(function(p){return p.item===def.item;}); if(!ex) priceList.push(def); else if(!ex.category) ex.category=def.category; });
           localStorage.setItem('dentalPriceList', JSON.stringify(priceList));
         }
         if(fbLabInfo) { Object.assign(labInfo, fbLabInfo); localStorage.setItem('dentalLabInfo', JSON.stringify(labInfo)); }
@@ -2101,7 +2193,7 @@ function setupRealtimeListeners() {
   window._fbOn('pricelist', function(data) {
     if(!data) return;
     priceList = Object.values(data);
-    DEFAULT_PRICE_LIST.forEach(function(def){ if(!priceList.find(function(p){return p.item===def.item;})) priceList.push(def); });
+    DEFAULT_PRICE_LIST.forEach(function(def){ var ex=priceList.find(function(p){return p.item===def.item;}); if(!ex) priceList.push(def); else if(!ex.category) ex.category=def.category; });
     localStorage.setItem('dentalPriceList', JSON.stringify(priceList));
     renderPriceTable();
   });
