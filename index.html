@@ -1286,6 +1286,16 @@ function buildRowTeethDiagram(key, wrap) {
   wrap.setAttribute('data-teeth-key', key);
 }
 
+function getCaseGroup(caseType) {
+  // Use teeth_group from pricelist if available
+  var item = priceList.find(function(p){ return p.item === caseType; });
+  if(item && item.teeth_group) return item.teeth_group;
+  // Fallback to hardcoded lists
+  if(TEETH_CASES.indexOf(caseType) !== -1) return 'A';
+  if(UL_CASES.indexOf(caseType) !== -1) return 'B';
+  return 'C';
+}
+
 function updateRowTeeth(row, caseType) {
   var wrap = row.querySelector('[data-teeth-wrap]');
   if(!wrap) return;
@@ -1309,7 +1319,8 @@ function updateRowTeeth(row, caseType) {
       '<button type="button" onclick="setUL(this,\'Upper\')" data-ul-btn style="flex:1;padding:5px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.78rem;cursor:pointer;">Upper</button>',
       '<button type="button" onclick="setUL(this,\'Lower\')" data-ul-btn style="flex:1;padding:5px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.78rem;cursor:pointer;">Lower</button>',
       '<input type="hidden" data-ul-select value=""/>',
-      '<input type="hidden" data-qty-input value="1"/>',
+      '<span style="font-size:0.72rem;color:#64748b;white-space:nowrap;">Qty:</span>',
+      '<input type="number" class="f-input" style="width:65px;flex:none;" min="1" value="1" data-qty-input/>',
     ].join('');
   } else {
     // Group C — show qty input
@@ -1346,18 +1357,24 @@ function setUL(btn, val) {
 function addCaseRow(pfx) {
   var container = document.getElementById(pfx+'-case-rows');
   if(!container) return;
+  var idx = container.children.length + 1;
   var row = document.createElement('div');
   row.className = 'case-row';
-  row.style.cssText = 'margin-bottom:8px;';
+  row.style.cssText = 'margin-bottom:10px;border:2px solid #16a34a;border-radius:10px;overflow:hidden;';
   row.innerHTML = [
-    '<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">',
+    '<div style="background:#e8f5ee;padding:4px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #bbddd0;">',
+    '<span style="color:#16a34a;font-size:0.72rem;font-family:DM Mono,monospace;letter-spacing:0.08em;font-weight:600;">CASE '+ idx +'</span>',
+    '<button type="button" onclick="removeCaseRow(this)" style="background:none;border:1px solid #f87171;color:#f87171;border-radius:5px;padding:1px 8px;cursor:pointer;font-size:0.9rem;line-height:1.4;">−</button>',
+    '</div>',
+    '<div style="padding:10px;display:flex;flex-direction:column;gap:8px;">',
+    '<div style="display:flex;gap:6px;align-items:center;">',
     '<select class="f-select" style="flex:1.6;min-width:140px;" data-case-select>',
     '<option value="">— Select Case —</option>',
     '</select>',
     '<input type="text" class="f-input" style="flex:1;min-width:90px;" placeholder="Patient" data-patient-input/>',
-    '<button type="button" onclick="removeCaseRow(this)" style="background:none;border:1px solid #f87171;color:#f87171;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.9rem;flex-shrink:0;">−</button>',
     '</div>',
     '<div data-teeth-wrap style="display:none;"></div>',
+    '</div>',
   ].join('');
   container.appendChild(row);
   var sel = row.querySelector('[data-case-select]');
@@ -1370,8 +1387,14 @@ function addCaseRow(pfx) {
 
 function removeCaseRow(btn) {
   var container = btn.closest('[id$="-case-rows"]');
-  if(container && container.children.length > 1) {
-    btn.parentElement.remove();
+  var card = btn.closest('.case-row');
+  if(container && card && container.children.length > 1) {
+    card.remove();
+    // Renumber remaining cases
+    Array.from(container.children).forEach(function(c, i) {
+      var lbl = c.querySelector('span[style*="CASE"]');
+      if(lbl) lbl.textContent = 'CASE ' + (i+1);
+    });
   }
 }
 
