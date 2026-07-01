@@ -56,7 +56,7 @@ window._fbSet = async function(path, data) {
   } else if(table === 'pricelist') {
     await fetch(_SB_URL + '/pricelist?id=gte.0', { method: 'DELETE', headers: _SB_HDR });
     if(data && Object.keys(data).length) {
-      const rows = Object.values(data).map(p => ({ item:p.item||'', unit:p.unit||'', price:p.price||'', category:p.category||'fixed' }));
+      const rows = Object.values(data).map(p => ({ item:p.item||'', unit:p.unit||'', price:p.price||'', category:p.category||'fixed', teeth_group:p.teeth_group||'A' }));
       await fetch(_SB_URL + '/pricelist', { method: 'POST', headers: _SB_HDR, body: JSON.stringify(rows) });
     }
   } else if(table === 'labinfo') {
@@ -611,11 +611,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
     <div class="form-card">
       <div class="form-card-hdr">New Entry</div>
       <div class="form-body">
-        <!-- Date + Qty -->
-        <div class="form-row two">
-          <div class="field-wrap"><label class="field-lbl" for="m-date">Date <span class="req">*</span></label><input type="date" class="f-input" id="m-date"/></div>
-          <div class="field-wrap"><label class="field-lbl" for="m-qty">Quantity</label><input type="number" class="f-input" id="m-qty" min="1" placeholder="e.g. 3"/></div>
-        </div>
+        <!-- Date only -->
+        <div class="field-wrap"><label class="field-lbl" for="m-date">Date <span class="req">*</span></label><input type="date" class="f-input" id="m-date"/></div>
         <!-- Fixed / Removable -->
         <div class="field-wrap">
           <div class="field-lbl">Category <span class="req">*</span></div>
@@ -641,18 +638,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
             <button type="button" onclick="addCaseRow('m')" style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:1rem;cursor:pointer;line-height:1;">+</button>
           </div>
           <div id="m-case-rows"></div>
-        </div>
-        <!-- Teeth -->
-        <div class="field-wrap">
-          <div class="field-lbl" role="group" aria-label="Teeth No.">Teeth No.</div>
-          <div class="teeth-wrap">
-            <div class="teeth-display empty" id="m-teeth-display">No teeth selected</div>
-            <div class="teeth-diagram" id="m-teeth-diagram"></div>
-            <div class="teeth-manual-row">
-              <input type="text" id="m-teeth-manual" placeholder="Or type: 11 12 21 22" oninput="syncManual('m')"/>
-              <button class="teeth-clear-btn" onclick="clearTeeth('m')">Clear</button>
-            </div>
-          </div>
         </div>
         <!-- Remark -->
         <div class="field-wrap"><label class="field-lbl" for="m-remark">Remark</label><textarea class="f-textarea" id="m-remark" placeholder="Any notes..."></textarea></div>
@@ -840,11 +825,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       <div style="background:#fff;border-radius:14px;width:580px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
         <div class="form-card-hdr" style="border-radius:14px 14px 0 0;">New Entry</div>
         <div class="form-body">
-          <!-- Row 1: Date + Quantity -->
-          <div class="form-row">
-            <div class="field-wrap"><label class="field-lbl" for="d-date">Date <span class="req">*</span></label><input type="date" class="f-input" id="d-date"/></div>
-            <div class="field-wrap"><label class="field-lbl" for="d-qty">Quantity</label><input type="number" class="f-input" id="d-qty" min="1" placeholder="e.g. 3"/></div>
-          </div>
+          <!-- Row 1: Date only -->
+          <div class="field-wrap"><label class="field-lbl" for="d-date">Date <span class="req">*</span></label><input type="date" class="f-input" id="d-date"/></div>
           <!-- Row 2: Fixed / Removable toggle -->
           <div class="field-wrap">
             <div class="field-lbl">Category <span class="req">*</span></div>
@@ -865,18 +847,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
               <button type="button" onclick="addCaseRow('d')" style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:1rem;cursor:pointer;line-height:1;">+</button>
             </div>
             <div id="d-case-rows"></div>
-          </div>
-          <!-- Teeth -->
-          <div class="field-wrap">
-            <div class="field-lbl" role="group" aria-label="Teeth No.">Teeth No.</div>
-            <div class="teeth-wrap">
-              <div class="teeth-display empty" id="d-teeth-display">No teeth selected</div>
-              <div class="teeth-diagram" id="d-teeth-diagram"></div>
-              <div class="teeth-manual-row">
-                <input type="text" id="d-teeth-manual" placeholder="Or type: 11 12 21 22" oninput="syncManual('d')"/>
-                <button class="teeth-clear-btn" onclick="clearTeeth('d')">Clear</button>
-              </div>
-            </div>
           </div>
           <!-- Remark -->
           <div class="field-wrap"><label class="field-lbl" for="d-remark">Remark</label><textarea class="f-textarea" id="d-remark" placeholder="Any notes..."></textarea></div>
@@ -975,6 +945,13 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
         <option value="removable">🦷 Removable</option>
       </select>
     </div>
+    <div class="modal-field"><label>Teeth Group *</label>
+      <select id="p-teeth-group" class="f-select">
+        <option value="A">A — Needs Teeth No.</option>
+        <option value="B">B — Upper / Lower only</option>
+        <option value="C">C — No teeth needed</option>
+      </select>
+    </div>
     <div class="modal-grid2">
       <div class="modal-field"><label>Unit</label><input type="text" id="p-unit" placeholder="e.g. per tooth"/></div>
       <div class="modal-field"><label>Price (MMK)</label><input type="number" id="p-price" placeholder="e.g. 150000"/></div>
@@ -1046,38 +1023,41 @@ const monthKey = todayStr.slice(0,7);
 let entries   = JSON.parse(localStorage.getItem('dentalEntries')   || '[]');
 let clinics   = JSON.parse(localStorage.getItem('dentalClinics')   || '[]');
 const DEFAULT_PRICE_LIST = [
-  { item: 'Full Contour Zirconia',          unit: 'per unit',  price: '65000',  category: 'fixed'     },
-  { item: 'Multilayer Zirconia (4D Pro)',    unit: 'per unit',  price: '75000',  category: 'fixed'     },
-  { item: 'Porcelain Fused to Zirconia',    unit: 'per unit',  price: '85000',  category: 'fixed'     },
-  { item: 'Zirconia Veneer',                unit: 'per unit',  price: '100000', category: 'fixed'     },
-  { item: 'Zirconia Post and Core',         unit: 'per unit',  price: '60000',  category: 'fixed'     },
-  { item: 'PMMA',                           unit: 'per unit',  price: '20000',  category: 'fixed'     },
-  { item: 'PMMA Multilayer',                unit: 'per unit',  price: '35000',  category: 'fixed'     },
-  { item: 'Dental Model Half (U or L)',     unit: 'per cast',  price: '8000',   category: 'fixed'     },
-  { item: 'Dental Model Half (U and L)',    unit: 'per cast',  price: '15000',  category: 'fixed'     },
-  { item: 'Dental Model One Cast (U or L)', unit: 'per cast',  price: '15000',  category: 'fixed'     },
-  { item: 'Dental Model Full (U and L)',    unit: 'per cast',  price: '30000',  category: 'fixed'     },
-  { item: 'Acrylic Denture Base (QC20)',    unit: 'per unit',  price: '12000',  category: 'removable' },
-  { item: 'Acrylic Teeth',                  unit: 'per unit',  price: '6000',   category: 'removable' },
-  { item: 'Acrylic Full/Full',              unit: 'per set',   price: '150000', category: 'removable' },
-  { item: 'Flexible Base + One Unit',       unit: 'per unit',  price: '45000',  category: 'removable' },
-  { item: 'Flexible Add One Unit',          unit: 'per unit',  price: '6000',   category: 'removable' },
-  { item: 'Flexible Full/Full',             unit: 'per set',   price: '220000', category: 'removable' },
-  { item: 'Acrylic Special Tray + Block',   unit: 'per cast',  price: '12000',  category: 'removable' },
-  { item: 'Rebasing (Heat Cure)',           unit: 'per cast',  price: '30000',  category: 'removable' },
-  { item: 'Tooth Addition Japan',           unit: 'per tooth', price: '6000',   category: 'removable' },
-  { item: 'Clasp Addition',                 unit: 'per unit',  price: '10000',  category: 'removable' },
-  { item: 'Repair',                         unit: 'per case',  price: '10000',  category: 'removable' },
-  { item: 'Clear Retainer (U+L)',           unit: 'per set',   price: '40000',  category: 'removable' },
-  { item: 'Bleaching Tray Soft (U+L)',      unit: 'per set',   price: '40000',  category: 'removable' },
-  { item: 'Reinforced Palatal/Lingual Bar', unit: 'per unit',  price: '15000',  category: 'removable' },
+  { item: 'Full Contour Zirconia',          unit: 'per unit',  price: '65000',  category: 'fixed',     teeth_group: 'A' },
+  { item: 'Multilayer Zirconia (4D Pro)',    unit: 'per unit',  price: '75000',  category: 'fixed',     teeth_group: 'A' },
+  { item: 'Porcelain Fused to Zirconia',    unit: 'per unit',  price: '85000',  category: 'fixed',     teeth_group: 'A' },
+  { item: 'Zirconia Veneer',                unit: 'per unit',  price: '100000', category: 'fixed',     teeth_group: 'A' },
+  { item: 'Zirconia Post and Core',         unit: 'per unit',  price: '60000',  category: 'fixed',     teeth_group: 'A' },
+  { item: 'PMMA',                           unit: 'per unit',  price: '20000',  category: 'fixed',     teeth_group: 'A' },
+  { item: 'PMMA Multilayer',                unit: 'per unit',  price: '35000',  category: 'fixed',     teeth_group: 'A' },
+  { item: 'Dental Model Half (U or L)',     unit: 'per cast',  price: '8000',   category: 'fixed',     teeth_group: 'B' },
+  { item: 'Dental Model Half (U and L)',    unit: 'per cast',  price: '15000',  category: 'fixed',     teeth_group: 'B' },
+  { item: 'Dental Model One Cast (U or L)', unit: 'per cast',  price: '15000',  category: 'fixed',     teeth_group: 'B' },
+  { item: 'Dental Model Full (U and L)',    unit: 'per cast',  price: '30000',  category: 'fixed',     teeth_group: 'B' },
+  { item: 'Acrylic Denture Base (QC20)',    unit: 'per unit',  price: '12000',  category: 'removable', teeth_group: 'B' },
+  { item: 'Acrylic Teeth',                  unit: 'per unit',  price: '6000',   category: 'removable', teeth_group: 'A' },
+  { item: 'Acrylic Full/Full',              unit: 'per set',   price: '150000', category: 'removable', teeth_group: 'B' },
+  { item: 'Flexible Base + One Unit',       unit: 'per unit',  price: '45000',  category: 'removable', teeth_group: 'A' },
+  { item: 'Flexible Add One Unit',          unit: 'per unit',  price: '6000',   category: 'removable', teeth_group: 'A' },
+  { item: 'Flexible Full/Full',             unit: 'per set',   price: '220000', category: 'removable', teeth_group: 'B' },
+  { item: 'Acrylic Special Tray + Block',   unit: 'per cast',  price: '12000',  category: 'removable', teeth_group: 'B' },
+  { item: 'Rebasing (Heat Cure)',           unit: 'per cast',  price: '30000',  category: 'removable', teeth_group: 'B' },
+  { item: 'Tooth Addition Japan',           unit: 'per tooth', price: '6000',   category: 'removable', teeth_group: 'C' },
+  { item: 'Clasp Addition',                 unit: 'per unit',  price: '10000',  category: 'removable', teeth_group: 'C' },
+  { item: 'Repair',                         unit: 'per case',  price: '10000',  category: 'removable', teeth_group: 'B' },
+  { item: 'Clear Retainer (U+L)',           unit: 'per set',   price: '40000',  category: 'removable', teeth_group: 'B' },
+  { item: 'Bleaching Tray Soft (U+L)',      unit: 'per set',   price: '40000',  category: 'removable', teeth_group: 'B' },
+  { item: 'Reinforced Palatal/Lingual Bar', unit: 'per unit',  price: '15000',  category: 'removable', teeth_group: 'B' },
 ];
 let priceList = JSON.parse(localStorage.getItem('dentalPriceList') || '[]');
 // Merge default prices - add any missing items and apply category
 DEFAULT_PRICE_LIST.forEach(function(def) {
   const exists = priceList.find(function(p) { return p.item === def.item; });
   if (!exists) priceList.push(def);
-  else if(!exists.category) exists.category = def.category;
+  else {
+    if(!exists.category) exists.category = def.category;
+    if(!exists.teeth_group) exists.teeth_group = def.teeth_group;
+  }
 });
 localStorage.setItem('dentalPriceList', JSON.stringify(priceList));
 let labInfo   = JSON.parse(localStorage.getItem('dentalLabInfo')   || '{}');
@@ -1189,23 +1169,203 @@ function logoutApp() {
 }
 
 
+// Cases needing teeth numbers input
+var TEETH_CASES = ['Full Contour Zirconia','Multilayer Zirconia (4D Pro)','Porcelain Fused to Zirconia','Zirconia Veneer','Zirconia Post and Core','PMMA','PMMA Multilayer','Acrylic Teeth','Flexible Add One Unit','Flexible Base + One Unit','Upper Denture','Lower Denture','Upper Flexible','Lower Flexible'];
+// Cases needing Upper/Lower only
+var UL_CASES = ['Acrylic Full/Full','Flexible Full/Full','Acrylic Denture Base (QC20)','Rebasing (Heat Cure)','Repair','Acrylic Special Tray + Block','Clear Retainer (U+L)','Bleaching Tray Soft (U+L)','Reinforced Palatal/Lingual Bar','Dental Model Half (U or L)','Dental Model Half (U and L)','Dental Model One Cast (U or L)','Dental Model Full (U and L)'];
+
+// Per-row teeth storage
+var rowTeeth = {};
+var rowTeethCount = 0;
+
+function buildRowTeethDiagram(key, wrap) {
+  rowTeeth[key] = new Set();
+
+  function makeBtn(n) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tooth-btn';
+    btn.textContent = n;
+    btn.setAttribute('data-tooth', n);
+    btn.onclick = function() {
+      if(rowTeeth[key].has(n)) {
+        rowTeeth[key].delete(n);
+        btn.classList.remove('sel');
+      } else {
+        rowTeeth[key].add(n);
+        btn.classList.add('sel');
+      }
+      var sorted = Array.from(rowTeeth[key]).sort(function(a,b){return a-b;});
+      var disp = wrap.querySelector('[data-teeth-disp]');
+      if(disp) { disp.textContent = sorted.length ? sorted.join(' ') : 'No teeth selected'; disp.classList.toggle('empty', !sorted.length); }
+      // Auto-fill qty from teeth count
+      var qtyInp = wrap.querySelector('[data-qty-input]');
+      if(qtyInp) qtyInp.value = sorted.length || 1;
+    };
+    return btn;
+  }
+
+  function makeRow(nums) {
+    var row = document.createElement('div');
+    row.className = 'teeth-row';
+    nums.forEach(function(n){ row.appendChild(makeBtn(n)); });
+    return row;
+  }
+
+  function mkLbl(t,st){ var s=document.createElement('span'); s.className='teeth-side-lbl'; s.textContent=t; if(st) s.style.cssText=st; return s; }
+
+  var disp = document.createElement('div');
+  disp.className = 'teeth-display empty'; disp.setAttribute('data-teeth-disp','');
+  disp.textContent = 'No teeth selected';
+
+  var upper = document.createElement('div'); upper.className='teeth-row-wrap';
+  upper.appendChild(mkLbl('R')); upper.appendChild(makeRow(UPPER_RIGHT));
+  upper.appendChild(mkLbl('|','margin:0 4px;color:#2e3348;')); upper.appendChild(makeRow(UPPER_LEFT));
+
+  var divider = document.createElement('div'); divider.className='teeth-divider'; divider.textContent='── UPPER ──────── LOWER ──';
+
+  var lower = document.createElement('div'); lower.className='teeth-row-wrap';
+  lower.appendChild(mkLbl('R')); lower.appendChild(makeRow(LOWER_RIGHT));
+  lower.appendChild(mkLbl('|','margin:0 4px;color:#2e3348;')); lower.appendChild(makeRow(LOWER_LEFT));
+
+  // Manual input row
+  var manualRow = document.createElement('div');
+  manualRow.style.cssText = 'display:flex;gap:6px;margin-top:4px;';
+  var manualInput = document.createElement('input');
+  manualInput.type = 'text'; manualInput.className = 'f-input';
+  manualInput.placeholder = 'Or type: 11 12 21 22';
+  manualInput.setAttribute('data-teeth-manual','');
+  manualInput.oninput = function() {
+    var nums = this.value.trim().split(/\s+/).filter(Boolean).map(Number).filter(function(n){return n>0;});
+    rowTeeth[key] = new Set(nums);
+    wrap.querySelectorAll('[data-tooth]').forEach(function(b){
+      b.classList.toggle('sel', rowTeeth[key].has(Number(b.getAttribute('data-tooth'))));
+    });
+    var disp = wrap.querySelector('[data-teeth-disp]');
+    if(disp) { disp.textContent = nums.length ? nums.join(' ') : 'No teeth selected'; disp.classList.toggle('empty', !nums.length); }
+    // Auto-fill qty
+    var qtyInp = wrap.querySelector('[data-qty-input]');
+    if(qtyInp) qtyInp.value = nums.length || 1;
+  };
+  var clearBtn = document.createElement('button');
+  clearBtn.type='button'; clearBtn.className='teeth-clear-btn'; clearBtn.textContent='Clear';
+  clearBtn.onclick = function() {
+    rowTeeth[key] = new Set();
+    wrap.querySelectorAll('[data-tooth]').forEach(function(b){ b.classList.remove('sel'); });
+    manualInput.value = '';
+    var disp = wrap.querySelector('[data-teeth-disp]');
+    if(disp) { disp.textContent='No teeth selected'; disp.classList.add('empty'); }
+  };
+  manualRow.appendChild(manualInput); manualRow.appendChild(clearBtn);
+
+  var shadeRow = document.createElement('div');
+  shadeRow.style.cssText = 'display:flex;gap:6px;margin-top:6px;align-items:center;';
+  var shadeLbl = document.createElement('span');
+  shadeLbl.textContent = 'Shade:';
+  shadeLbl.style.cssText = 'font-size:0.72rem;color:#64748b;white-space:nowrap;';
+  var shadeInp = document.createElement('input');
+  shadeInp.type = 'text'; shadeInp.className = 'f-input';
+  shadeInp.placeholder = 'e.g. A3'; shadeInp.style.flex = '1';
+  shadeInp.setAttribute('data-shade-input','');
+  // Auto qty display
+  var qtyLbl = document.createElement('span');
+  qtyLbl.style.cssText = 'font-size:0.72rem;color:#64748b;white-space:nowrap;';
+  qtyLbl.textContent = 'Qty:';
+  var qtyInp = document.createElement('input');
+  qtyInp.type = 'number'; qtyInp.className = 'f-input';
+  qtyInp.style.cssText = 'width:60px;flex:none;';
+  qtyInp.min = '1'; qtyInp.value = '0';
+  qtyInp.setAttribute('data-qty-input','');
+  shadeRow.appendChild(shadeLbl); shadeRow.appendChild(shadeInp);
+  shadeRow.appendChild(qtyLbl); shadeRow.appendChild(qtyInp);
+
+  wrap.appendChild(disp);
+  wrap.appendChild(upper); wrap.appendChild(divider); wrap.appendChild(lower);
+  wrap.appendChild(manualRow);
+  wrap.appendChild(shadeRow);
+  wrap.setAttribute('data-teeth-key', key);
+}
+
+function updateRowTeeth(row, caseType) {
+  var wrap = row.querySelector('[data-teeth-wrap]');
+  if(!wrap) return;
+  var group = getCaseGroup(caseType);
+  wrap.innerHTML = '';
+  wrap.style.display = 'none';
+  if(group === 'A') {
+    wrap.style.display = 'block';
+    wrap.style.padding = '8px';
+    wrap.style.background = '#f8f9fb';
+    wrap.style.borderRadius = '8px';
+    wrap.style.marginTop = '4px';
+    var key = wrap.getAttribute('data-teeth-key') || ('row-'+ (++rowTeethCount));
+    buildRowTeethDiagram(key, wrap);
+  } else if(group === 'B') {
+    wrap.style.display = 'flex';
+    wrap.style.gap = '6px';
+    wrap.style.marginTop = '4px';
+    wrap.style.alignItems = 'center';
+    wrap.innerHTML = [
+      '<button type="button" onclick="setUL(this,\'Upper\')" data-ul-btn style="flex:1;padding:5px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.78rem;cursor:pointer;">Upper</button>',
+      '<button type="button" onclick="setUL(this,\'Lower\')" data-ul-btn style="flex:1;padding:5px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.78rem;cursor:pointer;">Lower</button>',
+      '<input type="hidden" data-ul-select value=""/>',
+      '<input type="hidden" data-qty-input value="1"/>',
+    ].join('');
+  } else {
+    // Group C — show qty input
+    wrap.style.display = 'flex';
+    wrap.style.gap = '6px';
+    wrap.style.marginTop = '4px';
+    wrap.style.alignItems = 'center';
+    wrap.innerHTML = [
+      '<span style="font-size:0.72rem;color:#64748b;white-space:nowrap;">Qty:</span>',
+      '<input type="number" class="f-input" style="width:80px;flex:none;" min="1" value="1" data-qty-input/>',
+    ].join('');
+  }
+}
+
+function setUL(btn, val) {
+  var wrap = btn.closest('[data-teeth-wrap]');
+  // Reset all buttons
+  wrap.querySelectorAll('[data-ul-btn]').forEach(function(b) {
+    b.style.borderColor = '#e2e8f0';
+    b.style.background  = '#f8f9fb';
+    b.style.color       = '#64748b';
+    b.style.fontWeight  = '400';
+  });
+  // Highlight selected
+  btn.style.borderColor = '#16a34a';
+  btn.style.background  = '#e8f5ee';
+  btn.style.color       = '#16a34a';
+  btn.style.fontWeight  = '600';
+  // Store value
+  var hidden = wrap.querySelector('[data-ul-select]');
+  if(hidden) hidden.value = val;
+}
+
 function addCaseRow(pfx) {
   var container = document.getElementById(pfx+'-case-rows');
   if(!container) return;
   var row = document.createElement('div');
   row.className = 'case-row';
-  row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;';
+  row.style.cssText = 'margin-bottom:8px;';
   row.innerHTML = [
-    '<select class="f-select" style="flex:1.2;min-width:140px;" onchange="onCaseChange(\''+pfx+'\')" data-case-select>',
+    '<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">',
+    '<select class="f-select" style="flex:1.6;min-width:140px;" data-case-select>',
     '<option value="">— Select Case —</option>',
     '</select>',
-    '<input type="text" class="f-input" style="flex:1;min-width:100px;" placeholder="Patient" data-patient-input/>',
-    '<input type="text" class="f-input" style="flex:0.6;min-width:70px;" placeholder="Shade" data-shade-input/>',
+    '<input type="text" class="f-input" style="flex:1;min-width:90px;" placeholder="Patient" data-patient-input/>',
     '<button type="button" onclick="removeCaseRow(this)" style="background:none;border:1px solid #f87171;color:#f87171;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.9rem;flex-shrink:0;">−</button>',
+    '</div>',
+    '<div data-teeth-wrap style="display:none;"></div>',
   ].join('');
   container.appendChild(row);
   var sel = row.querySelector('[data-case-select]');
   populateSingleCaseSelect(sel, pfx, selectedCat[pfx]||'fixed');
+  sel.onchange = function() {
+    updateRowTeeth(row, this.value);
+    onCaseChange(pfx);
+  };
 }
 
 function removeCaseRow(btn) {
@@ -1536,57 +1696,57 @@ function submitEntry(pfx) {
   const date   = document.getElementById(pfx+'-date').value;
   const clinic = document.getElementById(pfx+'-clinic').value;
   const doctor = document.getElementById(pfx+'-doctor').value;
-  const shade  = document.getElementById(pfx+'-shade').value.trim();
   const qty    = document.getElementById(pfx+'-qty').value;
   const remark = document.getElementById(pfx+'-remark').value.trim();
-  const teethNo = Array.from(selectedTeeth[pfx]).sort((a,b)=>a-b).join(' ') ||
-    (document.getElementById(pfx+'-teeth-manual')?.value.trim()||'')
-;
 
   // Get case rows
   var caseRows = [];
-  if(pfx === 'd') {
-    var container = document.getElementById('d-case-rows');
-    if(container) {
-      Array.from(container.children).forEach(function(row) {
-        var sel = row.querySelector('[data-case-select]');
-        var pat = row.querySelector('[data-patient-input]');
-        var shd = row.querySelector('[data-shade-input]');
-    if(sel && sel.value) caseRows.push({ caseType: sel.value, patient: pat ? pat.value.trim() : '', shade: shd ? shd.value.trim() : '' });
-      });
-    }
-    if(!caseRows.length) { showToast('⚠ Please select at least one Case Type'); return; }
-  } else {
-    const ct = document.getElementById(pfx+'-case').value;
-    const pt = document.getElementById(pfx+'-patient').value.trim();
-    if(!ct) { showToast('⚠ Please fill Date, Clinic, Doctor & Case'); return; }
-    caseRows = [{ caseType: ct, patient: pt }];
+  var container = document.getElementById(pfx+'-case-rows');
+  if(container) {
+    Array.from(container.children).forEach(function(row) {
+      var sel = row.querySelector('[data-case-select]');
+      var pat = row.querySelector('[data-patient-input]');
+      var shd = row.querySelector('[data-shade-input]');
+      var qtyEl = row.querySelector('[data-qty-input]');
+      var twrap = row.querySelector('[data-teeth-wrap]');
+      var ul  = row.querySelector('[data-ul-select]');
+      var teethVal = '';
+      var qtyVal = qtyEl ? (qtyEl.value || '1') : '1';
+      if(twrap && twrap.getAttribute('data-teeth-key')) {
+        var key = twrap.getAttribute('data-teeth-key');
+        if(rowTeeth[key]) teethVal = Array.from(rowTeeth[key]).sort(function(a,b){return a-b;}).join(' ');
+      } else if(ul) teethVal = ul.value;
+      if(sel && sel.value) {
+        caseRows.push({
+          caseType: sel.value,
+          patient:  pat ? pat.value.trim() : '',
+          shade:    shd ? shd.value.trim() : '',
+          teethNo:  teethVal,
+          qty:      qtyVal
+        });
+      }
+    });
   }
-
+  if(!caseRows.length) { showToast('⚠ Please select at least one Case Type'); return; }
   if(!date||!clinic||!doctor) { showToast('⚠ Please fill Date, Clinic & Doctor'); return; }
 
-  const base = { date, clinicName: clinic, doctorName: doctor, teethNo, remark };
+  const base = { date, clinicName: clinic, doctorName: doctor, remark };
   var ts = Date.now();
 
   caseRows.forEach(function(cr) {
     const caseType = cr.caseType;
-    const patient  = cr.patient;
-    const shade    = cr.shade || '';
-    const eb = Object.assign({}, base, { patientName: patient, shade: shade });
-    if (caseType === 'Upper Denture' || caseType === 'Lower Denture') {
-      const tc = parseInt(qty) || selectedTeeth[pfx].size || 1;
-      const e1 = Object.assign({}, eb, { id: ts++, caseType: 'Acrylic Denture Base (QC20)', quantity: '1', teethNo: '' });
-      const e2 = Object.assign({}, eb, { id: ts++, caseType: 'Acrylic Teeth', quantity: String(tc) });
+    const qty = cr.qty || "1";
+    const eb = Object.assign({}, base, { patientName: cr.patient, shade: cr.shade, teethNo: cr.teethNo });
+    if (caseType === "Upper Denture" || caseType === "Lower Denture") {
+      const tc = parseInt(qty) || 1;
+      const e1 = Object.assign({}, eb, { id: ts++, caseType: "Acrylic Denture Base (QC20)", quantity: "1" });
+      const e2 = Object.assign({}, eb, { id: ts++, caseType: "Acrylic Teeth", quantity: String(tc) });
       entries.unshift(e2); entries.unshift(e1); fbSaveEntry(e1); fbSaveEntry(e2);
-    } else if (caseType === 'Upper Flexible' || caseType === 'Lower Flexible') {
-      const ta = Array.from(selectedTeeth[pfx]).sort((a,b)=>a-b);
-      const tc = ta.length || 1;
-      const ft = ta.length > 0 ? String(ta[0]) : teethNo;
-      const rt = ta.length > 1 ? ta.slice(1).join(' ') : '';
-      const e1 = Object.assign({}, eb, { id: ts++, caseType: 'Flexible Base + One Unit', quantity: '1', teethNo: ft });
+    } else if (caseType === "Upper Flexible" || caseType === "Lower Flexible") {
+      const e1 = Object.assign({}, eb, { id: ts++, caseType: "Flexible Base + One Unit", quantity: "1" });
       entries.unshift(e1); fbSaveEntry(e1);
-      if(tc > 1) {
-        const e2 = Object.assign({}, eb, { id: ts++, caseType: 'Flexible Add One Unit', quantity: String(tc-1), teethNo: rt });
+      if(parseInt(qty) > 1) {
+        const e2 = Object.assign({}, eb, { id: ts++, caseType: "Flexible Add One Unit", quantity: String(parseInt(qty)-1) });
         entries.unshift(e2); fbSaveEntry(e2);
       }
     } else {
@@ -1887,13 +2047,13 @@ function deleteClinic(i){showConfirm('Delete Clinic?','Are you sure you want to 
 // ══ PRICE CRUD ══
 function openPriceModal(){clearPriceForm();document.getElementById('price-modal').classList.add('open');setTimeout(()=>document.getElementById('p-item').focus(),50);}
 function closePriceModal(){document.getElementById('price-modal').classList.remove('open');}
-function clearPriceForm(){["p-item","p-unit","p-price"].forEach(id=>document.getElementById(id).value="");document.getElementById("p-category").value="fixed";}
+function clearPriceForm(){["p-item","p-unit","p-price"].forEach(id=>document.getElementById(id).value="");document.getElementById("p-category").value="fixed";document.getElementById("p-teeth-group").value="A";}
 function savePrice(){
   const item=document.getElementById("p-item").value.trim();
   if(!item){document.getElementById("p-item").focus();return;}
   const category=document.getElementById("p-category").value||"fixed";
-  priceList.push({item,unit:document.getElementById("p-unit").value.trim(),price:document.getElementById("p-price").value.trim(),category});
-  persistAll();renderPriceTable();closePriceModal();
+  const teeth_group=document.getElementById("p-teeth-group").value||"A";
+  priceList.push({item,unit:document.getElementById("p-unit").value.trim(),price:document.getElementById("p-price").value.trim(),category,teeth_group});
   populateDropdowns("d");populateDropdowns("m");
   showToast("✓ Price item added");
 }
@@ -2132,7 +2292,7 @@ async function fetchAndRender(retries) {
     }
     if(fbPriceList) {
       priceList = Object.values(fbPriceList);
-      DEFAULT_PRICE_LIST.forEach(function(def){ var ex=priceList.find(function(p){return p.item===def.item;}); if(!ex) priceList.push(def); else if(!ex.category) ex.category=def.category; });
+      DEFAULT_PRICE_LIST.forEach(function(def){ var ex=priceList.find(function(p){return p.item===def.item;}); if(!ex) priceList.push(def); else { if(!ex.category) ex.category=def.category; if(!ex.teeth_group) ex.teeth_group=def.teeth_group; } });
       localStorage.setItem('dentalPriceList', JSON.stringify(priceList));
     }
     if(fbLabInfo) {
@@ -2235,7 +2395,7 @@ function setupRealtimeListeners() {
         if(fbClinics) { clinics = Object.values(fbClinics); localStorage.setItem('dentalClinics', JSON.stringify(clinics)); }
         if(fbPriceList) {
           priceList = Object.values(fbPriceList);
-          DEFAULT_PRICE_LIST.forEach(function(def){ var ex=priceList.find(function(p){return p.item===def.item;}); if(!ex) priceList.push(def); else if(!ex.category) ex.category=def.category; });
+          DEFAULT_PRICE_LIST.forEach(function(def){ var ex=priceList.find(function(p){return p.item===def.item;}); if(!ex) priceList.push(def); else { if(!ex.category) ex.category=def.category; if(!ex.teeth_group) ex.teeth_group=def.teeth_group; } });
           localStorage.setItem('dentalPriceList', JSON.stringify(priceList));
         }
         if(fbLabInfo) { Object.assign(labInfo, fbLabInfo); localStorage.setItem('dentalLabInfo', JSON.stringify(labInfo)); }
@@ -2281,7 +2441,7 @@ function setupRealtimeListeners() {
   window._fbOn('pricelist', function(data) {
     if(!data) return;
     priceList = Object.values(data);
-    DEFAULT_PRICE_LIST.forEach(function(def){ var ex=priceList.find(function(p){return p.item===def.item;}); if(!ex) priceList.push(def); else if(!ex.category) ex.category=def.category; });
+    DEFAULT_PRICE_LIST.forEach(function(def){ var ex=priceList.find(function(p){return p.item===def.item;}); if(!ex) priceList.push(def); else { if(!ex.category) ex.category=def.category; if(!ex.teeth_group) ex.teeth_group=def.teeth_group; } });
     localStorage.setItem('dentalPriceList', JSON.stringify(priceList));
     renderPriceTable();
   });
