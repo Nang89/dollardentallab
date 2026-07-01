@@ -601,59 +601,66 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
     </div>
   </div>
 
-  <!-- Mobile: Add Record Form Popup -->
-  <div class="mob-page" id="mob-add-form">
-    <div class="mob-page-header">
-      <button class="back-btn" onclick="closeMobForm()">← Back</button>
-      <div class="page-title">Add Record</div>
-    </div>
-    <div style="padding:16px;display:flex;flex-direction:column;gap:16px;">
-      <div class="form-card">
-        <div class="form-card-hdr">New Entry</div>
-        <div class="form-body">
-          <div class="form-row two">
-            <div class="field-wrap"><label class="field-lbl" for="m-date">Date <span class="req">*</span></label><input type="date" class="f-input" id="m-date"/></div>
-            <div class="field-wrap"><label class="field-lbl" for="m-qty">Quantity</label><input type="number" class="f-input" id="m-qty" min="1" placeholder="e.g. 3"/></div>
-          </div>
-          <div class="field-wrap">
-            <label class="field-lbl" for="m-clinic">Clinic Name <span class="req">*</span></label>
-            <select class="f-select" id="m-clinic" onchange="onClinicChange('m')"><option value="">— Select Clinic —</option></select>
-          </div>
-          <div class="field-wrap">
-            <label class="field-lbl" for="m-doctor">Doctor Name <span class="req">*</span></label>
-            <select class="f-select" id="m-doctor"><option value="">— Select Doctor —</option></select>
-          </div>
-          <div class="field-wrap">
-            <div class="field-wrap">
-              <label class="field-lbl" for="m-case">Case Type <span class="req">*</span></label>
-              <div style="display:flex;gap:6px;margin-bottom:6px;">
-                <button type="button" id="m-cat-fixed" onclick="setCat('m','fixed')" style="flex:1;padding:6px;border:2px solid #16a34a;border-radius:6px;background:#e8f5ee;color:#16a34a;font-size:0.78rem;cursor:pointer;font-weight:600;">🔩 Fixed</button>
-                <button type="button" id="m-cat-removable" onclick="setCat('m','removable')" style="flex:1;padding:6px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.78rem;cursor:pointer;">🦷 Removable</button>
-              </div>
-              <select class="f-select" id="m-case"><option value="">— Select Case —</option></select>
-            </div>
-          </div>
-          <div class="form-row two">
-            <div class="field-wrap"><label class="field-lbl" for="m-shade">Shade</label><input type="text" class="f-input" id="m-shade" placeholder="e.g. A3"/></div>
-            <div class="field-wrap"><label class="field-lbl" for="m-patient">Patient Name</label><input type="text" class="f-input" id="m-patient" placeholder="e.g. John"/></div>
-          </div>
-          <div class="field-wrap">
-            <div class="field-lbl" role="group" aria-label="Teeth No.">Teeth No.</div>
-            <div class="teeth-wrap">
-              <div class="teeth-display empty" id="m-teeth-display">No teeth selected</div>
-              <div class="teeth-diagram" id="m-teeth-diagram"></div>
-              <div class="teeth-manual-row">
-                <input type="text" id="m-teeth-manual" placeholder="Or type: 11 12 21 22" oninput="syncManual('m')"/>
-                <button class="teeth-clear-btn" onclick="clearTeeth('m')">Clear</button>
-              </div>
-            </div>
-          </div>
-          <div class="field-wrap"><label class="field-lbl" for="m-remark">Remark</label><textarea class="f-textarea" id="m-remark" placeholder="Any notes..."></textarea></div>
-          <button class="submit-btn" onclick="submitEntry('m')">+ Add to Record</button>
+<!-- Mobile: Add Record Form Popup -->
+<div class="mob-page" id="mob-add-form">
+  <div class="mob-page-header">
+    <button class="back-btn" onclick="closeMobForm()">← Back</button>
+    <div class="page-title">Add Record</div>
+  </div>
+  <div style="padding:16px;display:flex;flex-direction:column;gap:16px;">
+    <div class="form-card">
+      <div class="form-card-hdr">New Entry</div>
+      <div class="form-body">
+        <!-- Date + Qty -->
+        <div class="form-row two">
+          <div class="field-wrap"><label class="field-lbl" for="m-date">Date <span class="req">*</span></label><input type="date" class="f-input" id="m-date"/></div>
+          <div class="field-wrap"><label class="field-lbl" for="m-qty">Quantity</label><input type="number" class="f-input" id="m-qty" min="1" placeholder="e.g. 3"/></div>
         </div>
+        <!-- Fixed / Removable -->
+        <div class="field-wrap">
+          <div class="field-lbl">Category <span class="req">*</span></div>
+          <div style="display:flex;gap:6px;">
+            <button type="button" id="m-cat-fixed" onclick="setCat('m','fixed')" style="flex:1;padding:8px;border:2px solid #16a34a;border-radius:6px;background:#e8f5ee;color:#16a34a;font-size:0.82rem;cursor:pointer;font-weight:600;">🔩 Fixed</button>
+            <button type="button" id="m-cat-removable" onclick="setCat('m','removable')" style="flex:1;padding:8px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.82rem;cursor:pointer;">🦷 Removable</button>
+          </div>
+        </div>
+        <!-- Clinic -->
+        <div class="field-wrap">
+          <label class="field-lbl" for="m-clinic">Clinic Name <span class="req">*</span></label>
+          <select class="f-select" id="m-clinic" onchange="onClinicChange('m')"><option value="">— Select Clinic —</option></select>
+        </div>
+        <!-- Doctor -->
+        <div class="field-wrap">
+          <label class="field-lbl" for="m-doctor">Doctor Name <span class="req">*</span></label>
+          <select class="f-select" id="m-doctor"><option value="">— Select Doctor —</option></select>
+        </div>
+        <!-- Dynamic case rows -->
+        <div class="field-wrap">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span class="field-lbl" style="margin:0;">Case Type <span class="req">*</span> &amp; Patient</span>
+            <button type="button" onclick="addCaseRow('m')" style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:1rem;cursor:pointer;line-height:1;">+</button>
+          </div>
+          <div id="m-case-rows"></div>
+        </div>
+        <!-- Teeth -->
+        <div class="field-wrap">
+          <div class="field-lbl" role="group" aria-label="Teeth No.">Teeth No.</div>
+          <div class="teeth-wrap">
+            <div class="teeth-display empty" id="m-teeth-display">No teeth selected</div>
+            <div class="teeth-diagram" id="m-teeth-diagram"></div>
+            <div class="teeth-manual-row">
+              <input type="text" id="m-teeth-manual" placeholder="Or type: 11 12 21 22" oninput="syncManual('m')"/>
+              <button class="teeth-clear-btn" onclick="clearTeeth('m')">Clear</button>
+            </div>
+          </div>
+        </div>
+        <!-- Remark -->
+        <div class="field-wrap"><label class="field-lbl" for="m-remark">Remark</label><textarea class="f-textarea" id="m-remark" placeholder="Any notes..."></textarea></div>
+        <button class="submit-btn" onclick="submitEntry('m')">+ Add to Record</button>
       </div>
     </div>
   </div>
+</div>
 
   <!-- Mobile: Clinics -->
   <div class="mob-page" id="mob-clinics">
@@ -830,29 +837,36 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
     <!-- Desktop Entry Modal -->
     <div class="modal-overlay" id="desk-entry-modal" style="z-index:9998;">
-      <div style="background:#fff;border-radius:14px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="background:#fff;border-radius:14px;width:580px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
         <div class="form-card-hdr" style="border-radius:14px 14px 0 0;">New Entry</div>
         <div class="form-body">
+          <!-- Row 1: Date + Quantity -->
           <div class="form-row">
             <div class="field-wrap"><label class="field-lbl" for="d-date">Date <span class="req">*</span></label><input type="date" class="f-input" id="d-date"/></div>
             <div class="field-wrap"><label class="field-lbl" for="d-qty">Quantity</label><input type="number" class="f-input" id="d-qty" min="1" placeholder="e.g. 3"/></div>
           </div>
+          <!-- Row 2: Fixed / Removable toggle -->
+          <div class="field-wrap">
+            <div class="field-lbl">Category <span class="req">*</span></div>
+            <div style="display:flex;gap:6px;">
+              <button type="button" id="d-cat-fixed" onclick="setCat('d','fixed')" style="flex:1;padding:8px;border:2px solid #16a34a;border-radius:6px;background:#e8f5ee;color:#16a34a;font-size:0.82rem;cursor:pointer;font-weight:600;">🔩 Fixed</button>
+              <button type="button" id="d-cat-removable" onclick="setCat('d','removable')" style="flex:1;padding:8px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.82rem;cursor:pointer;">🦷 Removable</button>
+            </div>
+          </div>
+          <!-- Row 3: Clinic + Doctor -->
           <div class="form-row">
             <div class="field-wrap"><label class="field-lbl" for="d-clinic">Clinic Name <span class="req">*</span></label><select class="f-select" id="d-clinic" onchange="onClinicChange('d')"><option value="">— Select Clinic —</option></select></div>
             <div class="field-wrap"><label class="field-lbl" for="d-doctor">Doctor Name <span class="req">*</span></label><select class="f-select" id="d-doctor"><option value="">— Select Doctor —</option></select></div>
           </div>
-          <div class="form-row">
-            <div class="field-wrap">
-              <label class="field-lbl" for="d-case">Case Type <span class="req">*</span></label>
-              <div style="display:flex;gap:6px;margin-bottom:6px;">
-                <button type="button" id="d-cat-fixed" onclick="setCat('d','fixed')" style="flex:1;padding:6px;border:2px solid #16a34a;border-radius:6px;background:#e8f5ee;color:#16a34a;font-size:0.78rem;cursor:pointer;font-weight:600;">🔩 Fixed</button>
-                <button type="button" id="d-cat-removable" onclick="setCat('d','removable')" style="flex:1;padding:6px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.78rem;cursor:pointer;">🦷 Removable</button>
-              </div>
-              <select class="f-select" id="d-case"><option value="">— Select Case —</option></select>
+          <!-- Dynamic case rows -->
+          <div class="field-wrap">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span class="field-lbl" style="margin:0;">Case Type <span class="req">*</span> &amp; Patient Name</span>
+              <button type="button" onclick="addCaseRow('d')" style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:1rem;cursor:pointer;line-height:1;">+</button>
             </div>
-            <div class="field-wrap"><label class="field-lbl" for="d-shade">Shade</label><input type="text" class="f-input" id="d-shade" placeholder="e.g. A3"/></div>
+            <div id="d-case-rows"></div>
           </div>
-          <div class="field-wrap"><label class="field-lbl" for="d-patient">Patient Name</label><input type="text" class="f-input" id="d-patient" placeholder="e.g. John"/></div>
+          <!-- Teeth -->
           <div class="field-wrap">
             <div class="field-lbl" role="group" aria-label="Teeth No.">Teeth No.</div>
             <div class="teeth-wrap">
@@ -864,7 +878,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
               </div>
             </div>
           </div>
+          <!-- Remark -->
           <div class="field-wrap"><label class="field-lbl" for="d-remark">Remark</label><textarea class="f-textarea" id="d-remark" placeholder="Any notes..."></textarea></div>
+          <!-- Buttons -->
           <div style="display:flex;gap:10px;">
             <button class="modal-cancel" onclick="closeDeskEntryModal()" style="flex:1;">Cancel</button>
             <button class="submit-btn" onclick="submitEntry('d')" style="flex:2;">+ Add to Record</button>
@@ -872,7 +888,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
         </div>
       </div>
     </div>
-
     <!-- Clinics Tab -->
     <div class="desk-content desk-tab" id="tab-clinics">
       <div class="tbl-section">
@@ -1132,7 +1147,13 @@ function mobOpen(id) {
   if(id==='mob-voucher'){ renderVoucherList(); }
 }
 function mobClose(id){ document.getElementById(id).classList.remove('active'); document.body.style.overflow=''; }
-function openMobForm(){ document.getElementById('mob-add-form').classList.add('active'); document.getElementById('m-date').value=todayStr; }
+function openMobForm(){
+  populateDropdowns('m');
+  var container = document.getElementById('m-case-rows');
+  if(container){ container.innerHTML=''; addCaseRow('m'); }
+  document.getElementById('mob-add-form').classList.add('active');
+  document.getElementById('m-date').value=todayStr;
+}
 function closeMobForm(){ document.getElementById('mob-add-form').classList.remove('active'); }
 
 // ══ DESKTOP TABS ══
@@ -1168,9 +1189,57 @@ function logoutApp() {
 }
 
 
+function addCaseRow(pfx) {
+  var container = document.getElementById(pfx+'-case-rows');
+  if(!container) return;
+  var row = document.createElement('div');
+  row.className = 'case-row';
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap;';
+  row.innerHTML = [
+    '<select class="f-select" style="flex:1.2;min-width:140px;" onchange="onCaseChange(\''+pfx+'\')" data-case-select>',
+    '<option value="">— Select Case —</option>',
+    '</select>',
+    '<input type="text" class="f-input" style="flex:1;min-width:100px;" placeholder="Patient" data-patient-input/>',
+    '<input type="text" class="f-input" style="flex:0.6;min-width:70px;" placeholder="Shade" data-shade-input/>',
+    '<button type="button" onclick="removeCaseRow(this)" style="background:none;border:1px solid #f87171;color:#f87171;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.9rem;flex-shrink:0;">−</button>',
+  ].join('');
+  container.appendChild(row);
+  var sel = row.querySelector('[data-case-select]');
+  populateSingleCaseSelect(sel, pfx, selectedCat[pfx]||'fixed');
+}
+
+function removeCaseRow(btn) {
+  var container = btn.closest('[id$="-case-rows"]');
+  if(container && container.children.length > 1) {
+    btn.parentElement.remove();
+  }
+}
+
+function populateSingleCaseSelect(sel, pfx, cat) {
+  var prev = sel.value;
+  sel.innerHTML = '<option value="">— Select Case —</option>';
+  if(cat === 'removable') {
+    [{value:'Upper Denture',label:'🦷 Upper Denture'},{value:'Lower Denture',label:'🦷 Lower Denture'},{value:'Upper Flexible',label:'🦷 Upper Flexible'},{value:'Lower Flexible',label:'🦷 Lower Flexible'}]
+    .forEach(function(d){ var o=document.createElement('option'); o.value=d.value; o.textContent=d.label; sel.appendChild(o); });
+    var HIDDEN = ['Acrylic Denture Base (QC20)','Acrylic Teeth','Flexible Base + One Unit','Flexible Add One Unit'];
+    priceList.filter(function(p){ return p.category==='removable' && HIDDEN.indexOf(p.item)===-1; })
+    .forEach(function(p){ var o=document.createElement('option'); o.value=p.item; o.textContent=p.item; sel.appendChild(o); });
+  } else {
+    priceList.filter(function(p){ return (p.category||'fixed')==='fixed'; })
+    .forEach(function(p){ var o=document.createElement('option'); o.value=p.item; o.textContent=p.item; sel.appendChild(o); });
+  }
+  if(prev) sel.value = prev;
+}
+
 function openDeskEntryModal() {
   populateDropdowns('d');
   renderMonthLabel('d');
+  // Reset case rows to 1
+  var container = document.getElementById('d-case-rows');
+  if(container) {
+    container.innerHTML = '';
+    addCaseRow('d');
+  }
   document.getElementById('desk-entry-modal').classList.add('open');
   setTimeout(function(){ document.getElementById('d-date').focus(); }, 100);
 }
@@ -1305,6 +1374,13 @@ function setCat(pfx, cat) {
   if(caseSel) {
     caseSel.innerHTML = '<option value="">— Select Case —</option>';
     populateCaseDropdown(pfx, cat);
+  }
+  // Also update all dynamic case rows
+  var container = document.getElementById(pfx+'-case-rows');
+  if(container) {
+    Array.from(container.querySelectorAll('[data-case-select]')).forEach(function(sel){
+      populateSingleCaseSelect(sel, pfx, cat);
+    });
   }
 }
 
@@ -1457,73 +1533,82 @@ function onDoctorChange(pfx) {
 
 // ══ SUBMIT ENTRY ══
 function submitEntry(pfx) {
-  const date    = document.getElementById(pfx+'-date').value;
-  const clinic  = document.getElementById(pfx+'-clinic').value;
-  const doctor  = document.getElementById(pfx+'-doctor').value;
-  const caseType= document.getElementById(pfx+'-case').value;
-  const shade   = document.getElementById(pfx+'-shade').value.trim();
-  const qty     = document.getElementById(pfx+'-qty').value;
-  const patient = document.getElementById(pfx+'-patient').value.trim();
-  const remark  = document.getElementById(pfx+'-remark').value.trim();
+  const date   = document.getElementById(pfx+'-date').value;
+  const clinic = document.getElementById(pfx+'-clinic').value;
+  const doctor = document.getElementById(pfx+'-doctor').value;
+  const shade  = document.getElementById(pfx+'-shade').value.trim();
+  const qty    = document.getElementById(pfx+'-qty').value;
+  const remark = document.getElementById(pfx+'-remark').value.trim();
   const teethNo = Array.from(selectedTeeth[pfx]).sort((a,b)=>a-b).join(' ') ||
-                  (document.getElementById(pfx+'-teeth-manual')?.value.trim()||'');
+    (document.getElementById(pfx+'-teeth-manual')?.value.trim()||'')
+;
 
-  if(!date||!clinic||!doctor||!caseType) { showToast('⚠ Please fill Date, Clinic, Doctor & Case'); return; }
-
-  const base = { date, clinicName: clinic, doctorName: doctor, shade, teethNo, patientName: patient, remark };
-
-if (caseType === 'Upper Denture' || caseType === 'Lower Denture') {
-  const teethCount = parseInt(qty) || selectedTeeth[pfx].size || 1;
-  const entry1 = Object.assign({}, base, { id: Date.now(),   caseType: 'Acrylic Denture Base (QC20)', quantity: '1', teethNo: '' });
-  const entry2 = Object.assign({}, base, { id: Date.now()+1, caseType: 'Acrylic Teeth', quantity: String(teethCount) });
-  entries.unshift(entry2); entries.unshift(entry1);
-  fbSaveEntry(entry1); fbSaveEntry(entry2);
-} else if (caseType === 'Upper Flexible' || caseType === 'Lower Flexible') {
-  const teethArr   = Array.from(selectedTeeth[pfx]).sort((a,b)=>a-b);
-  const teethCount = teethArr.length || 1;
-  const firstTooth = teethArr.length > 0 ? String(teethArr[0]) : teethNo;
-  const restTeeth  = teethArr.length > 1 ? teethArr.slice(1).join(' ') : '';
-  const entry1 = Object.assign({}, base, { id: Date.now(), caseType: 'Flexible Base + One Unit', quantity: '1', teethNo: firstTooth });
-  entries.unshift(entry1); fbSaveEntry(entry1);
-  const addUnits = teethCount - 1;
-  if (addUnits > 0) {
-    const entry2 = Object.assign({}, base, { id: Date.now()+1, caseType: 'Flexible Add One Unit', quantity: String(addUnits), teethNo: restTeeth });
-    entries.unshift(entry2); fbSaveEntry(entry2);
+  // Get case rows
+  var caseRows = [];
+  if(pfx === 'd') {
+    var container = document.getElementById('d-case-rows');
+    if(container) {
+      Array.from(container.children).forEach(function(row) {
+        var sel = row.querySelector('[data-case-select]');
+        var pat = row.querySelector('[data-patient-input]');
+        var shd = row.querySelector('[data-shade-input]');
+    if(sel && sel.value) caseRows.push({ caseType: sel.value, patient: pat ? pat.value.trim() : '', shade: shd ? shd.value.trim() : '' });
+      });
+    }
+    if(!caseRows.length) { showToast('⚠ Please select at least one Case Type'); return; }
+  } else {
+    const ct = document.getElementById(pfx+'-case').value;
+    const pt = document.getElementById(pfx+'-patient').value.trim();
+    if(!ct) { showToast('⚠ Please fill Date, Clinic, Doctor & Case'); return; }
+    caseRows = [{ caseType: ct, patient: pt }];
   }
-} else {
-  const entry = Object.assign({}, base, { id: Date.now(), caseType, quantity: qty });
-  entries.unshift(entry); fbSaveEntry(entry);
-}
-localStorage.setItem('dentalEntries', JSON.stringify(entries));
 
-  // Force reset all form fields immediately
-  var fields = [pfx+'-clinic', pfx+'-doctor', pfx+'-case', pfx+'-shade', pfx+'-qty', pfx+'-patient', pfx+'-remark', pfx+'-teeth-manual'];
-  fields.forEach(function(id) {
-    var el = document.getElementById(id);
-    if(el) { el.value = ''; if(el.tagName==='SELECT') el.innerHTML = '<option value="">— Select —</option>'; }
+  if(!date||!clinic||!doctor) { showToast('⚠ Please fill Date, Clinic & Doctor'); return; }
+
+  const base = { date, clinicName: clinic, doctorName: doctor, teethNo, remark };
+  var ts = Date.now();
+
+  caseRows.forEach(function(cr) {
+    const caseType = cr.caseType;
+    const patient  = cr.patient;
+    const shade    = cr.shade || '';
+    const eb = Object.assign({}, base, { patientName: patient, shade: shade });
+    if (caseType === 'Upper Denture' || caseType === 'Lower Denture') {
+      const tc = parseInt(qty) || selectedTeeth[pfx].size || 1;
+      const e1 = Object.assign({}, eb, { id: ts++, caseType: 'Acrylic Denture Base (QC20)', quantity: '1', teethNo: '' });
+      const e2 = Object.assign({}, eb, { id: ts++, caseType: 'Acrylic Teeth', quantity: String(tc) });
+      entries.unshift(e2); entries.unshift(e1); fbSaveEntry(e1); fbSaveEntry(e2);
+    } else if (caseType === 'Upper Flexible' || caseType === 'Lower Flexible') {
+      const ta = Array.from(selectedTeeth[pfx]).sort((a,b)=>a-b);
+      const tc = ta.length || 1;
+      const ft = ta.length > 0 ? String(ta[0]) : teethNo;
+      const rt = ta.length > 1 ? ta.slice(1).join(' ') : '';
+      const e1 = Object.assign({}, eb, { id: ts++, caseType: 'Flexible Base + One Unit', quantity: '1', teethNo: ft });
+      entries.unshift(e1); fbSaveEntry(e1);
+      if(tc > 1) {
+        const e2 = Object.assign({}, eb, { id: ts++, caseType: 'Flexible Add One Unit', quantity: String(tc-1), teethNo: rt });
+        entries.unshift(e2); fbSaveEntry(e2);
+      }
+    } else {
+      const e = Object.assign({}, eb, { id: ts++, caseType, quantity: qty });
+      entries.unshift(e); fbSaveEntry(e);
+    }
   });
-  var dateEl = document.getElementById(pfx+'-date');
-  if(dateEl) dateEl.value = todayStr;
-  clearTeeth(pfx);
+
+  localStorage.setItem('dentalEntries', JSON.stringify(entries));
   clearForm(pfx);
   populateDropdowns(pfx);
-  // Switch to the month of the added entry so it shows instantly
   viewMonth['d'] = date.slice(0,7);
   viewMonth['m'] = date.slice(0,7);
-  renderMonthLabel('d');
-  renderMonthLabel('m');
-  renderRecordTable('d');
-  renderRecordTable('m');
-  renderMobRecent();
-  renderDeskRecent();
-  // Update counters
+  renderMonthLabel('d'); renderMonthLabel('m');
+  renderRecordTable('d'); renderRecordTable('m');
+  renderMobRecent(); renderDeskRecent();
   document.getElementById('desk-today-num').textContent = entries.filter(e=>e.date===todayStr).length;
   document.getElementById('desk-month-num').textContent = entries.filter(e=>e.date&&e.date.startsWith(todayStr.slice(0,7))).length;
   if(pfx==='m') closeMobForm();
   if(pfx==='d') closeDeskEntryModal();
-  showToast(caseType.includes('Denture') || caseType.includes('Flexible') ? '✓ Entry added (split records)' : '✓ Entry added');
+  showToast('✓ '+caseRows.length+' case(s) added');
 }
-
 function clearForm(pfx) {
   document.getElementById(pfx+'-date').value    = todayStr;
   document.getElementById(pfx+'-qty').value     = '';
@@ -1546,6 +1631,9 @@ function clearForm(pfx) {
   });
   // Reset category to fixed
   setCat(pfx, 'fixed');
+  // Reset case rows to 1 empty row
+  var container = document.getElementById(pfx+'-case-rows');
+  if(container) { container.innerHTML = ''; addCaseRow(pfx); }
 }
 
 // ══ MONTHLY RECORDS ══
