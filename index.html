@@ -813,7 +813,19 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
         </div>
         <div style="overflow-x:auto;">
           <table class="data-table">
-            <thead><tr><th>No</th><th>Date</th><th>Clinic</th><th>Doctor</th><th>Patient</th><th>Case</th><th>Shade</th><th>Teeth No.</th><th>Qty</th><th>Remark</th><th></th></tr></thead>
+            <thead><tr>
+              <th style="width:40px;">No</th>
+              <th style="width:100px;">Date</th>
+              <th style="width:120px;">Clinic</th>
+              <th style="width:110px;">Doctor</th>
+              <th style="width:100px;">Patient</th>
+              <th style="min-width:160px;">Case</th>
+              <th style="width:70px;">Shade</th>
+              <th style="width:100px;">Teeth No.</th>
+              <th style="width:50px;">Qty</th>
+              <th>Remark</th>
+              <th style="width:30px;"></th>
+            </tr></thead>
             <tbody id="d-record-body"></tbody>
           </table>
         </div>
@@ -3034,75 +3046,93 @@ function buildMonthlyHTML(offset) {
     +'<button onclick="rptMonthIdx++;renderReport(\'monthly\',\'mob-monthly-content\');renderReport(\'monthly\',\'desk-report-view-content\');">›</button>'
     +'</div>';
 
-  if(!filtered.length) return nav+'<div style="color:var(--muted);text-align:center;padding:30px;">No entries for this month.</div>';
+  if(!filtered.length) return nav+'<div style="color:var(--muted);text-align:center;padding:30px;">No records for this month.</div>';
 
-  // Case type bar chart
-  var caseMap = {};
-  filtered.forEach(function(e){ var ct=e.caseType||'Unknown'; caseMap[ct]=(caseMap[ct]||0)+(parseFloat(e.quantity)||1); });
-  var caseKeys = Object.keys(caseMap).sort(function(a,b){return caseMap[b]-caseMap[a];});
-  var caseTotal = caseKeys.reduce(function(s,k){return s+caseMap[k];},0);
+  var COLORS = ['#16a34a','#2563eb','#d97706','#dc2626','#7c3aed','#0891b2','#db2777','#65a30d'];
 
-  // Clinic bar chart
-  var clinicMap = {};
-  filtered.forEach(function(e){ var cl=e.clinicName||'Unknown'; clinicMap[cl]=(clinicMap[cl]||0)+(parseFloat(e.quantity)||1); });
-  var clinicKeys = Object.keys(clinicMap).sort(function(a,b){return clinicMap[b]-clinicMap[a];});
-  var clinicTotal = clinicKeys.reduce(function(s,k){return s+clinicMap[k];},0);
+  var fixedItems    = filtered.filter(function(e){ var p=priceList.find(function(p){return p.item===e.caseType;}); return !p||(p.category||'fixed')==='fixed'; });
+  var removableItems= filtered.filter(function(e){ var p=priceList.find(function(p){return p.item===e.caseType;}); return p&&p.category==='removable'; });
 
-function barChart(keys, dataMap, total, colors, isCurrency) {
-  var maxVal = keys.length ? Math.max.apply(null, keys.map(function(k){return dataMap[k];})) : 1;
-  return keys.map(function(k,i){
-    var w   = Math.round(dataMap[k]/maxVal*100);
-    var pct = Math.round(dataMap[k]/total*100);
-    var val = isCurrency ? fmtNum(dataMap[k])+' MMK' : dataMap[k]+' units';
-    var color = colors[i%colors.length];
-    return '<div style="margin-bottom:12px;display:flex;align-items:center;gap:10px;">'
-      +'<div style="width:130px;text-align:right;font-size:0.73rem;color:var(--text);font-weight:500;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(k)+'</div>'
-      +'<div style="flex:1;background:#f0f4f8;border-radius:6px;height:22px;overflow:hidden;">'
-      +'<div style="width:'+Math.max(3,w)+'%;background:'+color+';height:100%;border-radius:6px;display:flex;align-items:center;padding-left:8px;box-sizing:border-box;transition:width 0.5s ease;">'
-      +'<span style="font-size:0.68rem;color:#fff;font-weight:600;white-space:nowrap;padding-right:6px;">'+val+'</span>'
+  function buildSection(items, sectionLabel, icon) {
+    if(!items.length) return '';
+    // Build case map
+    var caseMap = {}, caseIncome = {};
+    items.forEach(function(e){
+      var ct = e.caseType||'Unknown';
+      var qty = parseFloat(e.quantity)||1;
+      var price = getUnitPrice(ct)*qty;
+      caseMap[ct]   = (caseMap[ct]||0) + qty;
+      caseIncome[ct]= (caseIncome[ct]||0) + price;
+    });
+    var keys = Object.keys(caseMap).sort(function(a,b){return caseMap[b]-caseMap[a];});
+    var maxUnits = Math.max.apply(null, keys.map(function(k){return caseMap[k];}));
+    var subUnits  = keys.reduce(function(s,k){return s+caseMap[k];},0);
+    var subIncome = keys.reduce(function(s,k){return s+caseIncome[k];},0);
+
+    var rows = keys.map(function(k,i){
+      var w = Math.max(8, Math.round(caseMap[k]/maxUnits*100));
+      var color = COLORS[i%COLORS.length];
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
+        +'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;text-align:right;">'+k+'</div>'
+        +'<div style="flex:1;background:#f0f4f8;border-radius:5px;height:24px;overflow:hidden;">'
+        +'<div style="width:'+w+'%;background:'+color+';height:100%;border-radius:5px;display:flex;align-items:center;padding:0 10px;gap:12px;min-width:fit-content;">'
+        +'<span style="font-size:0.7rem;color:#fff;font-weight:700;white-space:nowrap;">'+caseMap[k]+' units</span>'
+        +'<span style="font-size:0.7rem;color:#fff;font-weight:700;white-space:nowrap;">'+fmtNum(caseIncome[k])+' MMK</span>'
+        +'</div></div></div>';
+    }).join('');
+
+    return '<div style="background:#e8f5ee;padding:8px 16px;border-bottom:1px solid #bbddd0;">'
+      +'<span style="color:#16a34a;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;">'+icon+' '+sectionLabel+'</span>'
       +'</div>'
-      +'</div>'
+      +'<div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;">'+rows+'</div>'
+      +'<div style="background:#f0fdf4;padding:9px 16px;border-bottom:2px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:0.75rem;font-weight:700;color:#16a34a;">'+sectionLabel+' Subtotal</span>'
+      +'<span style="font-size:0.75rem;font-weight:700;color:#16a34a;">'+subUnits+' units &nbsp;|&nbsp; '+fmtNum(subIncome)+' MMK</span>'
       +'</div>';
+  }
+
+  var totalUnits  = filtered.reduce(function(s,e){return s+(parseFloat(e.quantity)||1);},0);
+  var totalIncome = filtered.reduce(function(s,e){return s+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1);},0);
+
+  // Income by clinic
+  var clinicMap = {};
+  filtered.forEach(function(e){ var cl=e.clinicName||'Unknown'; clinicMap[cl]=(clinicMap[cl]||0)+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1); });
+  var clinicKeys = Object.keys(clinicMap).sort(function(a,b){return clinicMap[b]-clinicMap[a];});
+  var maxClinic = clinicKeys.length ? Math.max.apply(null,clinicKeys.map(function(k){return clinicMap[k];})) : 1;
+
+  var clinicRows = clinicKeys.map(function(k,i){
+    var w = Math.max(8, Math.round(clinicMap[k]/maxClinic*100));
+    return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
+      +'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;text-align:right;">'+k+'</div>'
+      +'<div style="flex:1;background:#f0f4f8;border-radius:5px;height:24px;overflow:hidden;">'
+      +'<div style="width:'+w+'%;background:'+COLORS[i%COLORS.length]+';height:100%;border-radius:5px;display:flex;align-items:center;padding:0 10px;">'
+      +'<span style="font-size:0.7rem;color:#fff;font-weight:700;white-space:nowrap;">'+fmtNum(clinicMap[k])+' MMK</span>'
+      +'</div></div></div>';
   }).join('');
-}
 
-// Income by clinic
-var clinicIncomeMap = {};
-filtered.forEach(function(e){
-  var cl = e.clinicName||'Unknown';
-  clinicIncomeMap[cl] = (clinicIncomeMap[cl]||0) + getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1);
-});
-var clinicIncomeKeys = Object.keys(clinicIncomeMap).sort(function(a,b){return clinicIncomeMap[b]-clinicIncomeMap[a];});
-var clinicIncomeTotal = clinicIncomeKeys.reduce(function(s,k){return s+clinicIncomeMap[k];},0);
+  var html = nav;
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;">';
+  html += buildSection(fixedItems, 'Fixed', '🔩');
+  html += buildSection(removableItems, 'Removable', '🦷');
+  html += '<div style="background:#1a3324;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:0.8rem;font-weight:700;color:#fff;">TOTAL</span>'
+    +'<span style="font-size:0.85rem;font-weight:700;color:#4ade80;">'+totalUnits+' units &nbsp;|&nbsp; '+fmtNum(totalIncome)+' MMK</span>'
+    +'</div>';
+  html += '</div>';
 
-var COLORS = ['#16a34a','#2563eb','#d97706','#dc2626','#7c3aed','#0891b2','#db2777','#65a30d','#ea580c','#6366f1'];
+  // Income by clinic card
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;">'
+    +'<div style="background:#e8f5ee;padding:8px 16px;border-bottom:1px solid #bbddd0;">'
+    +'<span style="color:#16a34a;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;">💰 Income by Clinic</span>'
+    +'</div>'
+    +'<div style="padding:12px 16px;">'+clinicRows+'</div>'
+    +'<div style="background:#1a3324;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:0.75rem;font-weight:700;color:#fff;">Total</span>'
+    +'<span style="font-size:0.8rem;font-weight:700;color:#4ade80;">'+fmtNum(totalIncome)+' MMK</span>'
+    +'</div>'
+    +'</div>';
 
-var html = nav;
-html += '<div style="display:flex;flex-direction:column;gap:14px;margin-bottom:16px;">';
-
-// Case types card
-html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
-  +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">🦷 Case Types — '+label+'</div>'
-  +barChart(caseKeys, caseMap, caseTotal, COLORS, false)
-  +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:var(--text);">'+caseTotal+' units</b></div>'
-  +'</div>';
-
-// Clinics by units card
-html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
-  +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">🏥 Clinics — '+label+'</div>'
-  +barChart(clinicKeys, clinicMap, clinicTotal, COLORS, false)
-  +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:var(--text);">'+clinicTotal+' units</b></div>'
-  +'</div>';
-
-// Income by clinic card
-html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
-  +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">💰 Income by Clinic — '+label+'</div>'
-  +barChart(clinicIncomeKeys, clinicIncomeMap, clinicIncomeTotal, COLORS, true)
-  +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:var(--text);">'+fmtNum(clinicIncomeTotal)+' MMK</b></div>'
-  +'</div>';
-
-html += '</div>';
-return html;
+  return html;
 }
 function buildYearlyHTML(offset) {
   var yr = new Date().getFullYear() + (offset||0);
