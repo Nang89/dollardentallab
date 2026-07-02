@@ -1322,14 +1322,27 @@ function updateRowTeeth(row, caseType) {
     wrap.style.marginTop = '4px';
     var key = wrap.getAttribute('data-teeth-key') || ('row-'+ (++rowTeethCount));
     buildRowTeethDiagram(key, wrap);
+
+    // Disable upper or lower teeth based on case type
+    var upperTeeth = UPPER_RIGHT.concat(UPPER_LEFT);
+    var lowerTeeth = LOWER_RIGHT.concat(LOWER_LEFT);
+    var disableUpper = (caseType === 'Lower Denture' || caseType === 'Lower Flexible');
+    var disableLower = (caseType === 'Upper Denture' || caseType === 'Upper Flexible');
+    if(disableUpper || disableLower) {
+      var toDisable = disableUpper ? upperTeeth : lowerTeeth;
+      toDisable.forEach(function(n) {
+        var btn = wrap.querySelector('[data-tooth="'+n+'"]');
+        if(btn) btn.classList.add('tooth-disabled');
+      });
+    }
   } else if(group === 'B') {
     wrap.style.display = 'flex';
     wrap.style.gap = '6px';
     wrap.style.marginTop = '4px';
     wrap.style.alignItems = 'center';
     wrap.innerHTML = [
-      '<button type="button" onclick="setUL(this,\'Upper\')" data-ul-btn style="flex:1;padding:5px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.78rem;cursor:pointer;">Upper</button>',
-      '<button type="button" onclick="setUL(this,\'Lower\')" data-ul-btn style="flex:1;padding:5px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.78rem;cursor:pointer;">Lower</button>',
+      '<button type="button" onclick="setUL(this,\'Upper\')" data-ul-btn data-ul-val="Upper" style="flex:1;padding:5px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.78rem;cursor:pointer;">Upper</button>',
+      '<button type="button" onclick="setUL(this,\'Lower\')" data-ul-btn data-ul-val="Lower" style="flex:1;padding:5px;border:2px solid #e2e8f0;border-radius:6px;background:#f8f9fb;color:#64748b;font-size:0.78rem;cursor:pointer;">Lower</button>',
       '<input type="hidden" data-ul-select value=""/>',
       '<span style="font-size:0.72rem;color:#64748b;white-space:nowrap;">Qty:</span>',
       '<input type="number" class="f-input" style="width:65px;flex:none;" min="1" value="1" data-qty-input/>',
@@ -1349,21 +1362,35 @@ function updateRowTeeth(row, caseType) {
 
 function setUL(btn, val) {
   var wrap = btn.closest('[data-teeth-wrap]');
-  // Reset all buttons
-  wrap.querySelectorAll('[data-ul-btn]').forEach(function(b) {
-    b.style.borderColor = '#e2e8f0';
-    b.style.background  = '#f8f9fb';
-    b.style.color       = '#64748b';
-    b.style.fontWeight  = '400';
-  });
-  // Highlight selected
-  btn.style.borderColor = '#16a34a';
-  btn.style.background  = '#e8f5ee';
-  btn.style.color       = '#16a34a';
-  btn.style.fontWeight  = '600';
-  // Store value
   var hidden = wrap.querySelector('[data-ul-select]');
-  if(hidden) hidden.value = val;
+  var qtyInp = wrap.querySelector('[data-qty-input]');
+  var current = hidden ? hidden.value : '';
+
+  // Toggle selection
+  var selected = current ? current.split(' ') : [];
+  var idx = selected.indexOf(val);
+  if(idx !== -1) {
+    selected.splice(idx, 1); // deselect
+  } else {
+    selected.push(val); // select
+    // Keep order: Upper first, then Lower
+    selected.sort(function(a,b){ return a === 'Upper' ? -1 : 1; });
+  }
+
+  // Update hidden value
+  if(hidden) hidden.value = selected.join(' ');
+  // Update qty
+  if(qtyInp) qtyInp.value = selected.length || 1;
+
+  // Update button styles
+  wrap.querySelectorAll('[data-ul-btn]').forEach(function(b) {
+    var bVal = b.getAttribute('data-ul-val');
+    var isSelected = selected.indexOf(bVal) !== -1;
+    b.style.borderColor = isSelected ? '#16a34a' : '#e2e8f0';
+    b.style.background  = isSelected ? '#e8f5ee' : '#f8f9fb';
+    b.style.color       = isSelected ? '#16a34a' : '#64748b';
+    b.style.fontWeight  = isSelected ? '600' : '400';
+  });
 }
 
 function addCaseRow(pfx) {
@@ -2627,25 +2654,25 @@ function renderVoucherList() {
 
   const html = doctors.map((d, i) => {
     const {sub} = calcVoucherTotal(d.entries, 0);
-    const cases = d.entries.length;
-    const isPaid = d.forcePaid; // determined by entry paid status, not vKey
-    const vKey = 'vpaid_'+voucherMonth+'_'+i;
-    const paidBadge = isPaid ? '<span class="vli-paid-badge">✓ PAID</span>' : '';
-    const paidBtn = isPaid
-      ? `<button class="vli-paid-btn unpaid-btn" onclick="event.stopPropagation();triggerUnpaid(${i})">Mark Unpaid</button>`
-      : `<button class="vli-paid-btn" onclick="event.stopPropagation();triggerPaid(${i})">Mark Paid</button>`;
-    return `<div class="voucher-list-item${isPaid?' vli-paid-item':''}" onclick="openVoucher(${i})">
-      <div class="vli-left">
-        <div class="vli-doctor">🧾 ${esc(d.doctor)} ${paidBadge}</div>
-        <div class="vli-clinic">${esc(d.clinic)} · ${cases} case${cases!==1?'s':''}</div>
-      </div>
-      <div class="vli-right">
-        <div class="vli-total">${fmtNum(sub)} MMK</div>
-        ${paidBtn}
-      </div>
-    </div>`;
+        const cases = d.entries.length;
+        const isPaid = d.forcePaid;
+        const invKey = 'inv_'+voucherMonth.slice(0,4)+'_'+d.doctor.replace(/\s/g,'_');
+        const invNo = localStorage.getItem(invKey) || '—';
+        const paidBadge = isPaid ? '<span class="vli-paid-badge">✓ PAID</span>' : '';
+        const paidBtn = isPaid
+          ? `<button class="vli-paid-btn unpaid-btn" onclick="event.stopPropagation();triggerUnpaid(${i})">Mark Unpaid</button>`
+          : `<button class="vli-paid-btn" onclick="event.stopPropagation();triggerPaid(${i})">Mark Paid</button>`;
+        return `<div class="voucher-list-item${isPaid?' vli-paid-item':''}" onclick="openVoucher(${i})">
+          <div class="vli-left">
+            <div class="vli-doctor">🧾 ${esc(d.doctor)} ${paidBadge}</div>
+            <div class="vli-clinic">${esc(d.clinic)} · ${cases} case${cases!==1?'s':''} · <span style="color:#16a34a;font-family:'DM Mono',monospace;font-size:0.7rem;">No. ${invNo}</span></div>
+          </div>
+          <div class="vli-right">
+            <div class="vli-total">${fmtNum(sub)} MMK</div>
+            ${paidBtn}
+          </div>
+        </div>`;
   }).join('');
-
   if(mobEl)  mobEl.innerHTML  = html;
   if(deskEl) deskEl.innerHTML = html;
 }
@@ -2714,7 +2741,7 @@ function openVoucher(idx) {
   const d = doctors[idx];
   if(!d) return;
 
-  const invKey = 'inv_'+voucherMonth+'_'+d.doctor.replace(/\s/g,'_');
+  const invKey = 'inv_'+voucherMonth.slice(0,4)+'_'+d.doctor.replace(/\s/g,'_');
   let invNo = localStorage.getItem(invKey);
   if(!invNo) {
     const yr2digit = parseInt(voucherMonth.slice(2,4));
@@ -3053,60 +3080,59 @@ function buildMonthlyHTML(offset) {
   var fixedItems    = filtered.filter(function(e){ var p=priceList.find(function(p){return p.item===e.caseType;}); return !p||(p.category||'fixed')==='fixed'; });
   var removableItems= filtered.filter(function(e){ var p=priceList.find(function(p){return p.item===e.caseType;}); return p&&p.category==='removable'; });
 
-  function buildSection(items, sectionLabel, icon) {
+  function buildSection(items, catLabel, icon) {
     if(!items.length) return '';
-    // Build case map
-    var caseMap = {}, caseIncome = {};
+    var caseMap = {}, feeMap = {};
     items.forEach(function(e){
       var ct = e.caseType||'Unknown';
       var qty = parseFloat(e.quantity)||1;
-      var price = getUnitPrice(ct)*qty;
-      caseMap[ct]   = (caseMap[ct]||0) + qty;
-      caseIncome[ct]= (caseIncome[ct]||0) + price;
+      var fee = getUnitPrice(e.caseType) * qty;
+      caseMap[ct] = (caseMap[ct]||0) + qty;
+      feeMap[ct]  = (feeMap[ct]||0) + fee;
     });
-    var keys = Object.keys(caseMap).sort(function(a,b){return caseMap[b]-caseMap[a];});
-    var maxUnits = Math.max.apply(null, keys.map(function(k){return caseMap[k];}));
-    var subUnits  = keys.reduce(function(s,k){return s+caseMap[k];},0);
-    var subIncome = keys.reduce(function(s,k){return s+caseIncome[k];},0);
+    var caseKeys = Object.keys(caseMap).sort(function(a,b){return caseMap[b]-caseMap[a];});
+    var maxUnits = Math.max.apply(null, caseKeys.map(function(k){return caseMap[k];}));
+    var subUnits = caseKeys.reduce(function(s,k){return s+caseMap[k];},0);
+    var subFees  = caseKeys.reduce(function(s,k){return s+feeMap[k];},0);
 
-    var rows = keys.map(function(k,i){
-      var w = Math.max(8, Math.round(caseMap[k]/maxUnits*100));
+    var rows = caseKeys.map(function(k,i){
+      var pct = Math.round(caseMap[k]/maxUnits*100);
       var color = COLORS[i%COLORS.length];
       return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
-        +'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;text-align:right;">'+k+'</div>'
-        +'<div style="flex:1;background:#f0f4f8;border-radius:5px;height:24px;overflow:hidden;">'
-        +'<div style="width:'+w+'%;background:'+color+';height:100%;border-radius:5px;display:flex;align-items:center;padding:0 10px;gap:12px;min-width:fit-content;">'
-        +'<span style="font-size:0.7rem;color:#fff;font-weight:700;white-space:nowrap;">'+caseMap[k]+' units</span>'
-        +'<span style="font-size:0.7rem;color:#fff;font-weight:700;white-space:nowrap;">'+fmtNum(caseIncome[k])+' MMK</span>'
-        +'</div></div></div>';
+        +'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;">'+k+'</div>'
+        +'<div style="flex:1;position:relative;background:#f0f4f8;border-radius:5px;height:26px;">'
+        +'<div style="position:absolute;left:0;top:0;width:'+Math.max(5,pct)+'%;background:'+color+';height:100%;border-radius:5px;"></div>'
+        +'<div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;padding:0 10px;gap:12px;">'
+        +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+caseMap[k]+' units</span>'
+        +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
+        +'</div>'
+        +'</div></div>';
     }).join('');
 
-    return '<div style="background:#e8f5ee;padding:8px 16px;border-bottom:1px solid #bbddd0;">'
-      +'<span style="color:#16a34a;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;">'+icon+' '+sectionLabel+'</span>'
+    return '<div style="background:#e8f5ee;padding:8px 16px;border-bottom:1px solid #bbddd0;border-top:1px solid #e2e8f0;">'
+      +'<span style="color:#16a34a;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;">'+icon+' '+catLabel+'</span>'
       +'</div>'
       +'<div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;">'+rows+'</div>'
-      +'<div style="background:#f0fdf4;padding:9px 16px;border-bottom:2px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">'
-      +'<span style="font-size:0.75rem;font-weight:700;color:#16a34a;">'+sectionLabel+' Subtotal</span>'
-      +'<span style="font-size:0.75rem;font-weight:700;color:#16a34a;">'+subUnits+' units &nbsp;|&nbsp; '+fmtNum(subIncome)+' MMK</span>'
+      +'<div style="background:#f0fdf4;padding:9px 16px;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:0.75rem;font-weight:700;color:#16a34a;">'+catLabel+' Subtotal</span>'
+      +'<span style="font-size:0.75rem;font-weight:700;color:#16a34a;">'+subUnits+' units &nbsp;|&nbsp; '+fmtNum(subFees)+' MMK</span>'
       +'</div>';
   }
 
-  var totalUnits  = filtered.reduce(function(s,e){return s+(parseFloat(e.quantity)||1);},0);
-  var totalIncome = filtered.reduce(function(s,e){return s+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1);},0);
-
   // Income by clinic
-  var clinicMap = {};
-  filtered.forEach(function(e){ var cl=e.clinicName||'Unknown'; clinicMap[cl]=(clinicMap[cl]||0)+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1); });
-  var clinicKeys = Object.keys(clinicMap).sort(function(a,b){return clinicMap[b]-clinicMap[a];});
-  var maxClinic = clinicKeys.length ? Math.max.apply(null,clinicKeys.map(function(k){return clinicMap[k];})) : 1;
+  var clinicIncomeMap = {};
+  filtered.forEach(function(e){ var cl=e.clinicName||'Unknown'; clinicIncomeMap[cl]=(clinicIncomeMap[cl]||0)+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1); });
+  var clinicIncomeKeys = Object.keys(clinicIncomeMap).sort(function(a,b){return clinicIncomeMap[b]-clinicIncomeMap[a];});
+  var totalIncome = clinicIncomeKeys.reduce(function(s,k){return s+clinicIncomeMap[k];},0);
+  var totalUnits  = filtered.reduce(function(s,e){return s+(parseFloat(e.quantity)||1);},0);
 
-  var clinicRows = clinicKeys.map(function(k,i){
-    var w = Math.max(8, Math.round(clinicMap[k]/maxClinic*100));
+  var clinicRows = clinicIncomeKeys.map(function(k,i){
+    var pct = Math.round(clinicIncomeMap[k]/totalIncome*100);
     return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
-      +'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;text-align:right;">'+k+'</div>'
-      +'<div style="flex:1;background:#f0f4f8;border-radius:5px;height:24px;overflow:hidden;">'
-      +'<div style="width:'+w+'%;background:'+COLORS[i%COLORS.length]+';height:100%;border-radius:5px;display:flex;align-items:center;padding:0 10px;">'
-      +'<span style="font-size:0.7rem;color:#fff;font-weight:700;white-space:nowrap;">'+fmtNum(clinicMap[k])+' MMK</span>'
+      +'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;">'+k+'</div>'
+      +'<div style="flex:1;background:#f0f4f8;border-radius:5px;height:26px;overflow:hidden;">'
+      +'<div style="width:'+Math.max(10,pct)+'%;background:'+COLORS[i%COLORS.length]+';height:100%;border-radius:5px;display:flex;align-items:center;padding:0 10px;">'
+      +'<span style="font-size:0.7rem;color:#fff;font-weight:700;white-space:nowrap;">'+fmtNum(clinicIncomeMap[k])+' MMK</span>'
       +'</div></div></div>';
   }).join('');
 
@@ -3120,138 +3146,106 @@ function buildMonthlyHTML(offset) {
     +'</div>';
   html += '</div>';
 
-  // Income by clinic card
-  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;">'
-    +'<div style="background:#e8f5ee;padding:8px 16px;border-bottom:1px solid #bbddd0;">'
-    +'<span style="color:#16a34a;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;">💰 Income by Clinic</span>'
-    +'</div>'
-    +'<div style="padding:12px 16px;">'+clinicRows+'</div>'
-    +'<div style="background:#1a3324;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">'
-    +'<span style="font-size:0.75rem;font-weight:700;color:#fff;">Total</span>'
-    +'<span style="font-size:0.8rem;font-weight:700;color:#4ade80;">'+fmtNum(totalIncome)+' MMK</span>'
-    +'</div>'
+  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">'
+    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">💰 Income by Clinic</div>'
+    +clinicRows
+    +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:#16a34a;">'+fmtNum(totalIncome)+' MMK</b></div>'
     +'</div>';
 
   return html;
 }
 function buildYearlyHTML(offset) {
-  var yr = new Date().getFullYear() + (offset||0);
-  var allYearEntries = entries.filter(function(e){ return e.date && e.date.startsWith(String(yr)); });
-
-  if (typeof window.rptYearQuarter === 'undefined') window.rptYearQuarter = 0;
-  var q = window.rptYearQuarter;
-  var quarterMonths = { 1:[1,2,3], 2:[4,5,6], 3:[7,8,9], 4:[10,11,12] };
-  var filtered = q === 0 ? allYearEntries : allYearEntries.filter(function(e){
-    var mo = parseInt((e.date||'').slice(5,7));
-    return quarterMonths[q].indexOf(mo) !== -1;
-  });
+  var now2 = new Date();
+  var year = now2.getFullYear() + offset;
+  var filtered = entries.filter(function(e){ return e.date && e.date.startsWith(String(year)); });
 
   var nav = '<div class="rpt-nav">'
-    +'<button onclick="rptYearIdx--;window.rptYearQuarter=0;renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');">‹</button>'
-    +'<span class="rpt-label">'+yr+'</span>'
-    +'<button onclick="rptYearIdx++;window.rptYearQuarter=0;renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');">›</button>'
+    +'<button onclick="rptYearIdx--;renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');">‹</button>'
+    +'<span class="rpt-label">'+year+'</span>'
+    +'<button onclick="rptYearIdx++;renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');">›</button>'
     +'</div>';
 
-  var quarters = [{label:'All',val:0},{label:'Q1',val:1,sub:'Jan–Mar'},{label:'Q2',val:2,sub:'Apr–Jun'},{label:'Q3',val:3,sub:'Jul–Sep'},{label:'Q4',val:4,sub:'Oct–Dec'}];
-  var qNav = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">'
-    +quarters.map(function(qt){
-      var active = (q===qt.val);
-      return '<button onclick="window.rptYearQuarter='+qt.val+';renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');"'
-        +' style="flex:1;min-width:50px;padding:7px 4px;border-radius:8px;border:1px solid '+(active?'var(--green)':'var(--border)')+';'
-        +'background:'+(active?'#1a3324':'var(--surface)')+';color:'+(active?'var(--green)':'var(--muted)')+';'
-        +'font-size:0.8rem;font-weight:'+(active?'700':'400')+';cursor:pointer;text-align:center;">'
-        +'<div>'+qt.label+'</div>'
-        +(qt.sub?'<div style="font-size:0.65rem;opacity:0.7;">'+qt.sub+'</div>':'')
-        +'</button>';
-    }).join('')+'</div>';
+  if(!filtered.length) return nav+'<div style="color:var(--muted);text-align:center;padding:30px;">No records for this year.</div>';
 
-  var periodLabel = q===0 ? String(yr) : ('Q'+q+' '+yr);
+  var COLORS = ['#16a34a','#2563eb','#d97706','#dc2626','#7c3aed','#0891b2','#db2777','#65a30d'];
 
-  if(!filtered.length) return nav+qNav+'<div style="color:var(--muted);text-align:center;padding:30px;">No entries for this period.</div>';
+  var fixedItems    = filtered.filter(function(e){ var p=priceList.find(function(p){return p.item===e.caseType;}); return !p||(p.category||'fixed')==='fixed'; });
+  var removableItems= filtered.filter(function(e){ var p=priceList.find(function(p){return p.item===e.caseType;}); return p&&p.category==='removable'; });
 
-  var COLORS = ['#16a34a','#2563eb','#d97706','#dc2626','#7c3aed','#0891b2','#db2777','#65a30d','#ea580c','#6366f1'];
+  function buildSection(items, catLabel, icon) {
+    if(!items.length) return '';
+    var caseMap = {}, feeMap = {};
+    items.forEach(function(e){
+      var ct = e.caseType||'Unknown';
+      var qty = parseFloat(e.quantity)||1;
+      caseMap[ct] = (caseMap[ct]||0) + qty;
+      feeMap[ct]  = (feeMap[ct]||0) + getUnitPrice(e.caseType)*qty;
+    });
+    var caseKeys = Object.keys(caseMap).sort(function(a,b){return caseMap[b]-caseMap[a];});
+    var maxUnits = Math.max.apply(null, caseKeys.map(function(k){return caseMap[k];}));
+    var subUnits = caseKeys.reduce(function(s,k){return s+caseMap[k];},0);
+    var subFees  = caseKeys.reduce(function(s,k){return s+feeMap[k];},0);
 
-  // Case type bar chart
-  var caseMap = {};
-  filtered.forEach(function(e){ var ct=e.caseType||'Unknown'; caseMap[ct]=(caseMap[ct]||0)+(parseFloat(e.quantity)||1); });
-  var caseKeys = Object.keys(caseMap).sort(function(a,b){return caseMap[b]-caseMap[a];});
-  var caseTotal = caseKeys.reduce(function(s,k){return s+caseMap[k];},0);
-
-  // Monthly income bar chart
-  var activeMths = q===0?[1,2,3,4,5,6,7,8,9,10,11,12]:quarterMonths[q];
-  var monthMap = {}, monthOrder = [];
-  activeMths.forEach(function(m){
-    var mk = yr+'-'+String(m).padStart(2,'0');
-    var mEntries = filtered.filter(function(e){return e.date&&e.date.startsWith(mk);});
-    if(mEntries.length){
-      var mLabel = new Date(yr,m-1,1).toLocaleDateString('en-GB',{month:'short'});
-      monthMap[mLabel] = mEntries.reduce(function(s,e){return s+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1);},0);
-      monthOrder.push(mLabel);
-    }
-  });
-  var incomeTotal = monthOrder.reduce(function(s,k){return s+monthMap[k];},0);
-  var maxIncome = monthOrder.length ? Math.max.apply(null, monthOrder.map(function(k){return monthMap[k];})) : 1;
-
-  function barChart(keys, dataMap, total, colors, isCurrency) {
-    var maxVal = keys.length ? Math.max.apply(null, keys.map(function(k){return dataMap[k];})) : 1;
-    return keys.map(function(k,i){
-      var w   = Math.round(dataMap[k]/maxVal*100);
-      var pct = Math.round(dataMap[k]/total*100);
-      var val = isCurrency ? fmtNum(dataMap[k])+' MMK' : dataMap[k]+' units';
-      var color = colors[i%colors.length];
-      return '<div style="margin-bottom:12px;display:flex;align-items:center;gap:10px;">'
-        +'<div style="width:130px;text-align:right;font-size:0.73rem;color:var(--text);font-weight:500;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(k)+'</div>'
-        +'<div style="flex:1;background:#f0f4f8;border-radius:6px;height:22px;overflow:hidden;">'
-        +'<div style="width:'+Math.max(3,w)+'%;background:'+color+';height:100%;border-radius:6px;display:flex;align-items:center;padding-left:8px;box-sizing:border-box;transition:width 0.5s ease;">'
-        +'<span style="font-size:0.68rem;color:#fff;font-weight:600;white-space:nowrap;padding-right:6px;">'+val+'</span>'
+    var rows = caseKeys.map(function(k,i){
+      var pct = Math.round(caseMap[k]/maxUnits*100);
+      var color = COLORS[i%COLORS.length];
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
+        +'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;">'+k+'</div>'
+        +'<div style="flex:1;position:relative;background:#f0f4f8;border-radius:5px;height:26px;">'
+        +'<div style="position:absolute;left:0;top:0;width:'+Math.max(5,pct)+'%;background:'+color+';height:100%;border-radius:5px;"></div>'
+        +'<div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;padding:0 10px;gap:12px;">'
+        +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+caseMap[k]+' units</span>'
+        +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
         +'</div>'
-        +'</div>'
-        +'</div>';
+        +'</div></div>';
     }).join('');
+
+    return '<div style="background:#e8f5ee;padding:8px 16px;border-bottom:1px solid #bbddd0;border-top:1px solid #e2e8f0;">'
+      +'<span style="color:#16a34a;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;">'+icon+' '+catLabel+'</span>'
+      +'</div>'
+      +'<div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;">'+rows+'</div>'
+      +'<div style="background:#f0fdf4;padding:9px 16px;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:0.75rem;font-weight:700;color:#16a34a;">'+catLabel+' Subtotal</span>'
+      +'<span style="font-size:0.75rem;font-weight:700;color:#16a34a;">'+subUnits+' units &nbsp;|&nbsp; '+fmtNum(subFees)+' MMK</span>'
+      +'</div>';
   }
 
-  // Monthly table
-  var grandTotal = 0;
-  var tRows = '';
-  activeMths.forEach(function(mm){
-    var mmk = yr+'-'+String(mm).padStart(2,'0');
-    var mmEntries = filtered.filter(function(e){return e.date&&e.date.startsWith(mmk);});
-    if(!mmEntries.length) return;
-    var mmLabel = new Date(yr,mm-1,1).toLocaleDateString('en-GB',{month:'long'});
-    var mmTotal = mmEntries.reduce(function(s,e){return s+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1);},0);
-    grandTotal += mmTotal;
-    tRows += '<tr><td>'+mmLabel+'</td><td style="text-align:center">'+mmEntries.length+'</td><td style="text-align:right">'+fmtNum(mmTotal)+'</td></tr>';
-  });
+  // Income by clinic
+  var clinicIncomeMap = {};
+  filtered.forEach(function(e){ var cl=e.clinicName||'Unknown'; clinicIncomeMap[cl]=(clinicIncomeMap[cl]||0)+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1); });
+  var clinicIncomeKeys = Object.keys(clinicIncomeMap).sort(function(a,b){return clinicIncomeMap[b]-clinicIncomeMap[a];});
+  var totalIncome = clinicIncomeKeys.reduce(function(s,k){return s+clinicIncomeMap[k];},0);
+  var totalUnits  = filtered.reduce(function(s,e){return s+(parseFloat(e.quantity)||1);},0);
 
-  var html = nav + qNav;
-  html += '<div style="display:flex;flex-direction:column;gap:14px;margin-bottom:16px;">';
+  var clinicRows = clinicIncomeKeys.map(function(k,i){
+    var pct = Math.round(clinicIncomeMap[k]/totalIncome*100);
+    return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
+      +'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;">'+k+'</div>'
+      +'<div style="flex:1;position:relative;background:#f0f4f8;border-radius:5px;height:26px;">'
+      +'<div style="position:absolute;left:0;top:0;width:'+Math.max(5,pct)+'%;background:'+COLORS[i%COLORS.length]+';height:100%;border-radius:5px;"></div>'
+      +'<div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;padding:0 10px;">'
+      +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+fmtNum(clinicIncomeMap[k])+' MMK</span>'
+      +'</div></div></div>';
+  }).join('');
 
-  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
-    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">🦷 Case Types — '+periodLabel+'</div>'
-    +barChart(caseKeys, caseMap, caseTotal, COLORS, false)
-    +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:var(--text);">'+caseTotal+' units</b></div>'
+  var html = nav;
+  html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;">';
+  html += buildSection(fixedItems, 'Fixed', '🔩');
+  html += buildSection(removableItems, 'Removable', '🦷');
+  html += '<div style="background:#1a3324;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">'
+    +'<span style="font-size:0.8rem;font-weight:700;color:#fff;">TOTAL</span>'
+    +'<span style="font-size:0.85rem;font-weight:700;color:#4ade80;">'+totalUnits+' units &nbsp;|&nbsp; '+fmtNum(totalIncome)+' MMK</span>'
     +'</div>';
-
-  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
-    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">💰 Monthly Income — '+periodLabel+'</div>'
-    +barChart(monthOrder, monthMap, incomeTotal, COLORS, true)
-    +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:var(--text);">'+fmtNum(incomeTotal)+' MMK</b></div>'
-    +'</div>';
-
   html += '</div>';
 
-  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">'
-    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:10px;">📋 Monthly Breakdown</div>'
-    +'<div style="overflow-x:auto;"><table class="rpt-table">'
-    +'<thead><tr><th>Month</th><th>Cases</th><th>Total (MMK)</th></tr></thead>'
-    +'<tbody>'+tRows+'</tbody>'
-    +'<tfoot><tr class="rpt-total-row"><td colspan="2">Period Total</td><td style="text-align:right">'+fmtNum(grandTotal)+'</td></tr></tfoot>'
-    +'</table></div>'
+  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">'
+    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">💰 Income by Clinic</div>'
+    +clinicRows
+    +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:#16a34a;">'+fmtNum(totalIncome)+' MMK</b></div>'
     +'</div>';
 
   return html;
 }
-
 
 function buildPercentHTML(offset) {
   var yr = new Date().getFullYear() + (offset||0);
