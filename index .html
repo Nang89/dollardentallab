@@ -2041,31 +2041,32 @@ function renderClinicTable() {
 
 // ══ PRICE TABLE ══
 function renderPriceTable() {
-  var fixed     = priceList.filter(function(p){ return (p.category||"fixed")==="fixed"; });
-  var removable = priceList.filter(function(p){ return p.category==="removable"; });
+  var fixed     = priceList.filter(function(p){ return (p.category||'fixed')==='fixed'; });
+  var removable = priceList.filter(function(p){ return p.category==='removable'; });
   function buildRows(list) {
-    if(!list.length) return "<tr><td colspan=5 class=tbl-empty>No items.</td></tr>";
+    if(!list.length) return '<tr><td colspan=5 class=tbl-empty>No items.</td></tr>';
     return list.map(function(p) {
       var gi = priceList.indexOf(p);
-      var item = esc(p.item); var unit = esc(p.unit); var price = p.price||"";
+      if(gi < 0) return ''; // safety check
+      var item = esc(p.item); var unit = esc(p.unit); var price = p.price||'';
       return [
-        "<tr>",
-        "<td class=cell-no>"+(gi+1)+"</td>",
-        "<td><input class=cell-input value='"+ item +"' onchange='editPrice("+ gi +",&quot;item&quot;,this.value)'/></td>",
-        "<td><input class=cell-input value='"+ unit +"' onchange='editPrice("+ gi +",&quot;unit&quot;,this.value)'/></td>",
-        "<td><input class=cell-input type=number value='"+ price +"' onchange='editPrice("+ gi +",&quot;price&quot;,this.value)'/></td>",
-        "<td class=del-cell><button class=del-btn onclick='deletePrice("+ gi +")'>✕</button></td>",
-        "</tr>"
-      ].join("");
-    }).join("");
+        '<tr>',
+        '<td class=cell-no>'+(gi+1)+'</td>',
+        '<td><input class=cell-input value=\''+item+'\' onchange=\'editPrice('+gi+',&quot;item&quot;,this.value)\'/></td>',
+        '<td><input class=cell-input value=\''+unit+'\' onchange=\'editPrice('+gi+',&quot;unit&quot;,this.value)\'/></td>',
+        '<td><input class=cell-input type=number value=\''+price+'\' onchange=\'editPrice('+gi+',&quot;price&quot;,this.value)\'/></td>',
+        '<td class=del-cell><button class=del-btn onclick=\'deletePrice('+gi+')\'>✕</button></td>',
+        '</tr>'
+      ].join('');
+    }).join('');
   }
-  var hdrStyle = "background:#1a3324;color:#7ecf9a;font-size:0.65rem;letter-spacing:0.1em;padding:8px 12px;text-transform:uppercase;";
-  var content = "<tr><td colspan=5 style='"+ hdrStyle +"'>🔩 Fixed</td></tr>"
+  var hdrStyle = 'background:#1a3324;color:#7ecf9a;font-size:0.65rem;letter-spacing:0.1em;padding:8px 12px;text-transform:uppercase;';
+  var content = '<tr><td colspan=5 style=\''+hdrStyle+'\'>🔩 Fixed</td></tr>'
     + buildRows(fixed)
-    + "<tr><td colspan=5 style='"+ hdrStyle +"'>🦷 Removable</td></tr>"
+    + '<tr><td colspan=5 style=\''+hdrStyle+'\'>🦷 Removable</td></tr>'
     + buildRows(removable);
-  var d = document.getElementById("desk-price-body");
-  var m = document.getElementById("mob-price-body");
+  var d = document.getElementById('desk-price-body');
+  var m = document.getElementById('mob-price-body');
   if(d) d.innerHTML = content;
   if(m) m.innerHTML = content;
 }
@@ -2131,7 +2132,17 @@ function savePrice(){
   showToast("✓ Price item added");
 }
 function editPrice(i,field,val){priceList[i][field]=val;persistAll();}
-function deletePrice(i){showConfirm('Delete Item?','Are you sure you want to delete "'+priceList[i].item+'"?',function(){priceList.splice(i,1);persistAll();renderPriceTable();populateDropdowns('d');populateDropdowns('m');showToast('Item deleted');});}
+function deletePrice(i){
+  if(i < 0 || i >= priceList.length) return;
+  showConfirm('Delete Item?','Are you sure you want to delete "'+priceList[i].item+'"?',function(){
+    priceList.splice(i,1);
+    persistAll();
+    renderPriceTable();
+    populateDropdowns('d');
+    populateDropdowns('m');
+    showToast('Item deleted');
+  });
+}
 
 // ══ LAB INFO ══
 function loadLabInfo(){
@@ -2779,8 +2790,8 @@ function openVoucher(idx) {
   const nextM = m === 12 ? 1 : m + 1;
   const nextY = m === 12 ? y + 1 : y;
   const dueDateISO = `${nextY}-${String(nextM).padStart(2,'0')}-15`;
-  const invDateISO = now.toISOString().slice(0,10);
-  const invDate = now.toLocaleDateString('en-GB',{day:'numeric',month:'numeric',year:'numeric'});
+  const invDateISO = new Date().toISOString().slice(0,10);
+  const invDate = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'numeric',year:'numeric'});
 
   const dueDateKey = 'due_'+invKey;
   const savedDueISO = localStorage.getItem(dueDateKey) || dueDateISO;
@@ -2819,7 +2830,7 @@ function buildVoucherHTML(d, invNo, invDate, dueDateISO, discount, discKey, dueD
   return `<div class="voucher-doc" id="voucher-doc-inner">
     <div class="voucher-doc-hdr">
       <div class="vdoc-logo-area">
-        <div class="vdoc-logo-circle"><img src="${document.getElementById('lab-logo-src').src}" style="width:100px;height:100px;object-fit:contain;" alt="Dollar Dental Lab Logo"/></div>
+        <div class="vdoc-logo-circle"><img src="${(document.getElementById('lab-logo-src')||{src:''}).src}" style="width:100px;height:100px;object-fit:contain;" alt="Dollar Dental Lab Logo"/></div>
         <div class="vdoc-lab-name">Dollar</div>
         <div class="vdoc-lab-sub">Dental Laboratory</div>
       </div>
