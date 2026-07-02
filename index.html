@@ -1089,6 +1089,7 @@ const longDate  = now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',m
 window.addEventListener('DOMContentLoaded', function() {
   // Always lock on fresh load - hide app content until password entered
   sessionStorage.removeItem('userRole');
+  localStorage.removeItem("dentalPriceList"); // Force fresh pricelist from Supabase
   if(window.location.protocol !== 'file:') {
     document.querySelector('.desktop-layout') && (document.querySelector('.desktop-layout').style.visibility = 'hidden');
     document.querySelector('.mobile-layout') && (document.querySelector('.mobile-layout').style.visibility = 'hidden');
@@ -1801,18 +1802,18 @@ function submitEntry(pfx) {
     const eb = Object.assign({}, base, { patientName: cr.patient, shade: cr.shade, teethNo: cr.teethNo });
     if (caseType === "Upper Denture" || caseType === "Lower Denture") {
       const tc = parseInt(qty) || 1;
-      const e1 = Object.assign({}, eb, { id: ts++, caseType: "Acrylic Denture Base (QC20)", quantity: "1" });
-      const e2 = Object.assign({}, eb, { id: ts++, caseType: "Acrylic Teeth", quantity: String(tc) });
+      const e1 = Object.assign({}, eb, { id: ts++, caseType: "Acrylic Denture Base (QC20)", quantity: "1", unitPrice: getUnitPrice("Acrylic Denture Base (QC20)") });
+      const e2 = Object.assign({}, eb, { id: ts++, caseType: "Acrylic Teeth", quantity: String(tc), unitPrice: getUnitPrice("Acrylic Teeth") });
       entries.unshift(e2); entries.unshift(e1); fbSaveEntry(e1); fbSaveEntry(e2);
     } else if (caseType === "Upper Flexible" || caseType === "Lower Flexible") {
-      const e1 = Object.assign({}, eb, { id: ts++, caseType: "Flexible Base + One Unit", quantity: "1" });
+      const e1 = Object.assign({}, eb, { id: ts++, caseType: "Flexible Base + One Unit", quantity: "1", unitPrice: getUnitPrice("Flexible Base + One Unit") });
       entries.unshift(e1); fbSaveEntry(e1);
       if(parseInt(qty) > 1) {
-        const e2 = Object.assign({}, eb, { id: ts++, caseType: "Flexible Add One Unit", quantity: String(parseInt(qty)-1) });
+        const e2 = Object.assign({}, eb, { id: ts++, caseType: "Flexible Add One Unit", quantity: String(parseInt(qty)-1), unitPrice: getUnitPrice("Flexible Add One Unit") });
         entries.unshift(e2); fbSaveEntry(e2);
       }
     } else {
-      const e = Object.assign({}, eb, { id: ts++, caseType, quantity: qty });
+      const e = Object.assign({}, eb, { id: ts++, caseType, quantity: qty, unitPrice: getUnitPrice(caseType) });
       entries.unshift(e); fbSaveEntry(e);
     }
   });
@@ -2346,6 +2347,9 @@ async function fetchAndRender(retries) {
       priceList = Object.values(fbPriceList);
       DEFAULT_PRICE_LIST.forEach(function(def){ var ex=priceList.find(function(p){return p.item===def.item;}); if(!ex) priceList.push(def); else { if(!ex.category) ex.category=def.category; if(!ex.teeth_group) ex.teeth_group=def.teeth_group; } });
       localStorage.setItem('dentalPriceList', JSON.stringify(priceList));
+    } else {
+      // No data in Supabase - use defaults
+      priceList = DEFAULT_PRICE_LIST.slice();
     }
     if(fbLabInfo) {
       Object.assign(labInfo, fbLabInfo);
@@ -2626,7 +2630,9 @@ function getVoucherDoctors() {
 }
 
 
-function getUnitPrice(caseType) {
+function getUnitPrice(caseType, entry) {
+  // Use stored price from entry if available (preserves historical prices)
+  if(entry && entry.unitPrice && parseFloat(entry.unitPrice) > 0) return parseFloat(entry.unitPrice);
   const p = priceList.find(p => p.item === caseType);
   return p ? parseFloat(p.price)||0 : 0;
 }
@@ -2634,7 +2640,7 @@ function getUnitPrice(caseType) {
 function calcVoucherTotal(doctorEntries, discount) {
   const sub = doctorEntries.reduce((sum, e) => {
     const qty = parseFloat(e.quantity)||1;
-    const up  = getUnitPrice(e.caseType);
+    const up  = getUnitPrice(e.caseType, e);
     return sum + (qty * up);
   }, 0);
   return { sub, discount: discount||0, total: sub - (discount||0) };
@@ -2657,7 +2663,20 @@ function renderVoucherList() {
         const cases = d.entries.length;
         const isPaid = d.forcePaid;
         const invKey = 'inv_'+voucherMonth.slice(0,4)+'_'+d.doctor.replace(/\s/g,'_');
-        const invNo = localStorage.getItem(invKey) || '—';
+        let invNo = localStorage.getItem(invKey);
+        if(!invNo) {
+          const yr2digit = parseInt(voucherMonth.slice(2,4));
+          const fullYear = parseInt('20'+String(yr2digit).padStart(2,'0'));
+          if(fullYear > invoiceYear) {
+            invoiceCounter = 1000;
+            invoiceYear = fullYear;
+            localStorage.setItem('invoiceYear', invoiceYear);
+          }
+          invoiceCounter++;
+          invNo = invoiceCounter + '/' + String(yr2digit).padStart(2,'0');
+          localStorage.setItem(invKey, invNo);
+          localStorage.setItem('invoiceCounter', invoiceCounter);
+        }
         const paidBadge = isPaid ? '<span class="vli-paid-badge">✓ PAID</span>' : '';
         const paidBtn = isPaid
           ? `<button class="vli-paid-btn unpaid-btn" onclick="event.stopPropagation();triggerUnpaid(${i})">Mark Unpaid</button>`
@@ -2786,7 +2805,7 @@ function buildVoucherHTML(d, invNo, invDate, dueDateISO, discount, discKey, dueD
   const {sub, total} = calcVoucherTotal(d.entries, discount);
   const rows = d.entries.map((e,i) => {
     const qty = parseFloat(e.quantity)||1;
-    const up  = getUnitPrice(e.caseType);
+    const up  = getUnitPrice(e.caseType, e);
     const tot = qty * up;
     return `<tr>
       <td>${e.date||'—'}</td>
@@ -3002,7 +3021,7 @@ function buildLedgerHTML() {
   var unpaidTotal = 0;
 
   var rows = sorted.map(function(e) {
-    var up  = getUnitPrice(e.caseType);
+    var up  = getUnitPrice(e.caseType, e);
     var qty = parseFloat(e.quantity)||1;
     var t   = up * qty;
     var isPaid = localStorage.getItem('paid_'+e.id)==='1';
@@ -3086,7 +3105,7 @@ function buildMonthlyHTML(offset) {
     items.forEach(function(e){
       var ct = e.caseType||'Unknown';
       var qty = parseFloat(e.quantity)||1;
-      var fee = getUnitPrice(e.caseType) * qty;
+      var fee = getUnitPrice(e.caseType, e) * qty;
       caseMap[ct] = (caseMap[ct]||0) + qty;
       feeMap[ct]  = (feeMap[ct]||0) + fee;
     });
@@ -3098,15 +3117,22 @@ function buildMonthlyHTML(offset) {
     var rows = caseKeys.map(function(k,i){
       var pct = Math.round(caseMap[k]/maxUnits*100);
       var color = COLORS[i%COLORS.length];
+      var textOnBar = pct >= 40;
       return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
-        +'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;">'+k+'</div>'
-        +'<div style="flex:1;position:relative;background:#f0f4f8;border-radius:5px;height:26px;">'
-        +'<div style="position:absolute;left:0;top:0;width:'+Math.max(5,pct)+'%;background:'+color+';height:100%;border-radius:5px;"></div>'
-        +'<div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;padding:0 10px;gap:12px;">'
-        +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+caseMap[k]+' units</span>'
-        +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
-        +'</div>'
-        +'</div></div>';
++'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;">'+k+'</div>'
++'<div style="flex:1;position:relative;background:#f0f4f8;border-radius:5px;height:26px;">'
++'<div style="position:absolute;left:0;top:0;width:'+Math.max(5,pct)+'%;background:'+color+';height:100%;border-radius:5px;"></div>'
++(textOnBar
+  ? '<div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;padding:0 10px;gap:12px;">'
+    +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+caseMap[k]+' units</span>'
+    +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
+    +'</div>'
+  : '<div style="position:absolute;left:'+(Math.max(5,pct)+2)+'%;top:0;height:100%;display:flex;align-items:center;gap:8px;">'
+    +'<span style="font-size:0.7rem;font-weight:700;color:#374151;white-space:nowrap;">'+caseMap[k]+' units</span>'
+    +'<span style="font-size:0.7rem;font-weight:700;color:#16a34a;white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
+    +'</div>'
+)
++'</div></div>';
     }).join('');
 
     return '<div style="background:#e8f5ee;padding:8px 16px;border-bottom:1px solid #bbddd0;border-top:1px solid #e2e8f0;">'
@@ -3121,7 +3147,7 @@ function buildMonthlyHTML(offset) {
 
   // Income by clinic
   var clinicIncomeMap = {};
-  filtered.forEach(function(e){ var cl=e.clinicName||'Unknown'; clinicIncomeMap[cl]=(clinicIncomeMap[cl]||0)+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1); });
+  filtered.forEach(function(e){ var cl=e.clinicName||'Unknown'; clinicIncomeMap[cl]=(clinicIncomeMap[cl]||0)+getUnitPrice(e.caseType, e)*(parseFloat(e.quantity)||1); });
   var clinicIncomeKeys = Object.keys(clinicIncomeMap).sort(function(a,b){return clinicIncomeMap[b]-clinicIncomeMap[a];});
   var totalIncome = clinicIncomeKeys.reduce(function(s,k){return s+clinicIncomeMap[k];},0);
   var totalUnits  = filtered.reduce(function(s,e){return s+(parseFloat(e.quantity)||1);},0);
@@ -3155,20 +3181,43 @@ function buildMonthlyHTML(offset) {
   return html;
 }
 function buildYearlyHTML(offset) {
-  var now2 = new Date();
-  var year = now2.getFullYear() + offset;
-  var filtered = entries.filter(function(e){ return e.date && e.date.startsWith(String(year)); });
+  var yr = new Date().getFullYear() + (offset||0);
+  var allYearEntries = entries.filter(function(e){ return e.date && e.date.startsWith(String(yr)); });
+
+  if(typeof window.rptYearQuarter === 'undefined') window.rptYearQuarter = 0;
+  var q = window.rptYearQuarter;
+  var quarterMonths = { 1:[1,2,3], 2:[4,5,6], 3:[7,8,9], 4:[10,11,12] };
+  var filtered = q === 0 ? allYearEntries : allYearEntries.filter(function(e){
+    var mo = parseInt((e.date||'').slice(5,7));
+    return quarterMonths[q].indexOf(mo) !== -1;
+  });
 
   var nav = '<div class="rpt-nav">'
-    +'<button onclick="rptYearIdx--;renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');">‹</button>'
-    +'<span class="rpt-label">'+year+'</span>'
-    +'<button onclick="rptYearIdx++;renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');">›</button>'
+    +'<button onclick="rptYearIdx--;window.rptYearQuarter=0;renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');">‹</button>'
+    +'<span class="rpt-label">'+yr+'</span>'
+    +'<button onclick="rptYearIdx++;window.rptYearQuarter=0;renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');">›</button>'
     +'</div>';
 
-  if(!filtered.length) return nav+'<div style="color:var(--muted);text-align:center;padding:30px;">No records for this year.</div>';
+  var quarters = [{label:'All',val:0},{label:'Q1',val:1,sub:'Jan–Mar'},{label:'Q2',val:2,sub:'Apr–Jun'},{label:'Q3',val:3,sub:'Jul–Sep'},{label:'Q4',val:4,sub:'Oct–Dec'}];
+  var qNav = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">'
+    +quarters.map(function(qt){
+      var active = (q===qt.val);
+      return '<button onclick="window.rptYearQuarter='+qt.val+';renderReport(\'yearly\',\'mob-yearly-content\');renderReport(\'yearly\',\'desk-report-view-content\');"'
+        +' style="flex:1;min-width:50px;padding:7px 4px;border-radius:8px;border:1px solid '+(active?'var(--green)':'var(--border)')+';'
+        +'background:'+(active?'#1a3324':'var(--surface)')+';color:'+(active?'var(--green)':'var(--muted)')+';'
+        +'font-size:0.8rem;font-weight:'+(active?'700':'400')+';cursor:pointer;text-align:center;">'
+        +'<div>'+qt.label+'</div>'
+        +(qt.sub?'<div style="font-size:0.65rem;opacity:0.7;">'+qt.sub+'</div>':'')
+        +'</button>';
+    }).join('')+'</div>';
+
+  var periodLabel = q===0 ? String(yr) : ('Q'+q+' '+yr);
+
+  if(!filtered.length) return nav+qNav+'<div style="color:var(--muted);text-align:center;padding:30px;">No entries for this period.</div>';
 
   var COLORS = ['#16a34a','#2563eb','#d97706','#dc2626','#7c3aed','#0891b2','#db2777','#65a30d'];
 
+  // Fixed/Removable split
   var fixedItems    = filtered.filter(function(e){ var p=priceList.find(function(p){return p.item===e.caseType;}); return !p||(p.category||'fixed')==='fixed'; });
   var removableItems= filtered.filter(function(e){ var p=priceList.find(function(p){return p.item===e.caseType;}); return p&&p.category==='removable'; });
 
@@ -3179,7 +3228,7 @@ function buildYearlyHTML(offset) {
       var ct = e.caseType||'Unknown';
       var qty = parseFloat(e.quantity)||1;
       caseMap[ct] = (caseMap[ct]||0) + qty;
-      feeMap[ct]  = (feeMap[ct]||0) + getUnitPrice(e.caseType)*qty;
+      feeMap[ct]  = (feeMap[ct]||0) + getUnitPrice(e.caseType, e)*qty;
     });
     var caseKeys = Object.keys(caseMap).sort(function(a,b){return caseMap[b]-caseMap[a];});
     var maxUnits = Math.max.apply(null, caseKeys.map(function(k){return caseMap[k];}));
@@ -3189,14 +3238,21 @@ function buildYearlyHTML(offset) {
     var rows = caseKeys.map(function(k,i){
       var pct = Math.round(caseMap[k]/maxUnits*100);
       var color = COLORS[i%COLORS.length];
+      var textOnBar = pct >= 40; // Only show text on bar if wide enough
       return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
         +'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;">'+k+'</div>'
         +'<div style="flex:1;position:relative;background:#f0f4f8;border-radius:5px;height:26px;">'
         +'<div style="position:absolute;left:0;top:0;width:'+Math.max(5,pct)+'%;background:'+color+';height:100%;border-radius:5px;"></div>'
-        +'<div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;padding:0 10px;gap:12px;">'
-        +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+caseMap[k]+' units</span>'
-        +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
-        +'</div>'
+        +(textOnBar
+          ? '<div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;padding:0 10px;gap:12px;">'
+            +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+caseMap[k]+' units</span>'
+            +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
+            +'</div>'
+          : '<div style="position:absolute;left:'+(Math.max(5,pct)+2)+'%;top:0;height:100%;display:flex;align-items:center;gap:8px;">'
+            +'<span style="font-size:0.7rem;font-weight:700;color:#374151;white-space:nowrap;">'+caseMap[k]+' units</span>'
+            +'<span style="font-size:0.7rem;font-weight:700;color:#16a34a;white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
+            +'</div>'
+        )
         +'</div></div>';
     }).join('');
 
@@ -3206,42 +3262,79 @@ function buildYearlyHTML(offset) {
       +'<div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;">'+rows+'</div>'
       +'<div style="background:#f0fdf4;padding:9px 16px;display:flex;justify-content:space-between;align-items:center;">'
       +'<span style="font-size:0.75rem;font-weight:700;color:#16a34a;">'+catLabel+' Subtotal</span>'
-      +'<span style="font-size:0.75rem;font-weight:700;color:#16a34a;">'+subUnits+' units &nbsp;|&nbsp; '+fmtNum(subFees)+' MMK</span>'
+      +'<span style="font-size:0.75rem;font-weight:700;color:#16a34a;">'+subUnits+' units | '+fmtNum(subFees)+' MMK</span>'
       +'</div>';
   }
 
-  // Income by clinic
-  var clinicIncomeMap = {};
-  filtered.forEach(function(e){ var cl=e.clinicName||'Unknown'; clinicIncomeMap[cl]=(clinicIncomeMap[cl]||0)+getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1); });
-  var clinicIncomeKeys = Object.keys(clinicIncomeMap).sort(function(a,b){return clinicIncomeMap[b]-clinicIncomeMap[a];});
-  var totalIncome = clinicIncomeKeys.reduce(function(s,k){return s+clinicIncomeMap[k];},0);
-  var totalUnits  = filtered.reduce(function(s,e){return s+(parseFloat(e.quantity)||1);},0);
+  var totalUnits = filtered.reduce(function(s,e){return s+(parseFloat(e.quantity)||1);},0);
+  var totalIncome = filtered.reduce(function(s,e){return s+getUnitPrice(e.caseType, e)*(parseFloat(e.quantity)||1);},0);
 
-  var clinicRows = clinicIncomeKeys.map(function(k,i){
-    var pct = Math.round(clinicIncomeMap[k]/totalIncome*100);
+  // Monthly income bar chart (TABLE 2 - KEEP)
+  var activeMths = q===0?[1,2,3,4,5,6,7,8,9,10,11,12]:quarterMonths[q];
+  var monthMap = {}, monthOrder = [];
+  activeMths.forEach(function(m){
+    var mk = yr+'-'+String(m).padStart(2,'0');
+    var mEntries = filtered.filter(function(e){return e.date&&e.date.startsWith(mk);});
+    if(mEntries.length){
+      var mLabel = new Date(yr,m-1,1).toLocaleDateString('en-GB',{month:'short'});
+      monthMap[mLabel] = mEntries.reduce(function(s,e){return s+getUnitPrice(e.caseType, e)*(parseFloat(e.quantity)||1);},0);
+      monthOrder.push(mLabel);
+    }
+  });
+  var incomeTotal = monthOrder.reduce(function(s,k){return s+monthMap[k];},0);
+  var maxIncome = monthOrder.length ? Math.max.apply(null, monthOrder.map(function(k){return monthMap[k];})) : 1;
+
+  var monthIncomeChart = monthOrder.map(function(k,i){
+    var pct = Math.round(monthMap[k]/maxIncome*100);
     return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
-      +'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;">'+k+'</div>'
+      +'<div style="width:40px;font-size:0.73rem;color:var(--text);flex-shrink:0;">'+k+'</div>'
       +'<div style="flex:1;position:relative;background:#f0f4f8;border-radius:5px;height:26px;">'
       +'<div style="position:absolute;left:0;top:0;width:'+Math.max(5,pct)+'%;background:'+COLORS[i%COLORS.length]+';height:100%;border-radius:5px;"></div>'
       +'<div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;padding:0 10px;">'
-      +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+fmtNum(clinicIncomeMap[k])+' MMK</span>'
+      +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+fmtNum(monthMap[k])+' MMK</span>'
       +'</div></div></div>';
   }).join('');
 
-  var html = nav;
+  // Monthly breakdown table (TABLE 3 - KEEP)
+  var grandTotal = 0;
+  var tRows = '';
+  activeMths.forEach(function(mm){
+    var mmk = yr+'-'+String(mm).padStart(2,'0');
+    var mmEntries = filtered.filter(function(e){return e.date&&e.date.startsWith(mmk);});
+    if(!mmEntries.length) return;
+    var mmLabel = new Date(yr,mm-1,1).toLocaleDateString('en-GB',{month:'long'});
+    var mmTotal = mmEntries.reduce(function(s,e){return s+getUnitPrice(e.caseType, e)*(parseFloat(e.quantity)||1);},0);
+    grandTotal += mmTotal;
+    tRows += '<tr><td>'+mmLabel+'</td><td style="text-align:center">'+mmEntries.length+'</td><td style="text-align:right">'+fmtNum(mmTotal)+'</td></tr>';
+  });
+
+  var html = nav + qNav;
+
+  // TABLE 1 — Fixed/Removable (new)
   html += '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;">';
   html += buildSection(fixedItems, 'Fixed', '🔩');
   html += buildSection(removableItems, 'Removable', '🦷');
   html += '<div style="background:#1a3324;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">'
     +'<span style="font-size:0.8rem;font-weight:700;color:#fff;">TOTAL</span>'
-    +'<span style="font-size:0.85rem;font-weight:700;color:#4ade80;">'+totalUnits+' units &nbsp;|&nbsp; '+fmtNum(totalIncome)+' MMK</span>'
+    +'<span style="font-size:0.85rem;font-weight:700;color:#4ade80;">'+totalUnits+' units | '+fmtNum(totalIncome)+' MMK</span>'
     +'</div>';
   html += '</div>';
 
+  // TABLE 2 — Monthly Income bar chart (KEEP)
+  html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">'
+    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">💰 Monthly Income — '+periodLabel+'</div>'
+    +monthIncomeChart
+    +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:#16a34a;">'+fmtNum(incomeTotal)+' MMK</b></div>'
+    +'</div>';
+
+  // TABLE 3 — Monthly Breakdown table (KEEP)
   html += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">'
-    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:12px;">💰 Income by Clinic</div>'
-    +clinicRows
-    +'<div style="margin-top:8px;font-size:0.76rem;color:var(--muted);">Total: <b style="color:#16a34a;">'+fmtNum(totalIncome)+' MMK</b></div>'
+    +'<div style="font-size:0.83rem;font-weight:700;color:var(--green);margin-bottom:10px;">📋 Monthly Breakdown</div>'
+    +'<div style="overflow-x:auto;"><table class="rpt-table">'
+    +'<thead><tr><th>Month</th><th>Cases</th><th>Total (MMK)</th></tr></thead>'
+    +'<tbody>'+tRows+'</tbody>'
+    +'<tfoot><tr class="rpt-total-row"><td colspan="2">Period Total</td><td style="text-align:right">'+fmtNum(grandTotal)+'</td></tr></tfoot>'
+    +'</table></div>'
     +'</div>';
 
   return html;
@@ -3267,7 +3360,7 @@ function buildPercentHTML(offset) {
   var rows = MONTHS.map(function(mName, mi) {
     var mk = yr + '-' + String(mi+1).padStart(2,'0');
     var mEntries = entries.filter(function(e){ return e.date && e.date.startsWith(mk); });
-    var income = mEntries.reduce(function(s,e){ return s + getUnitPrice(e.caseType)*(parseFloat(e.quantity)||1); }, 0);
+    var income = mEntries.reduce(function(s,e){ return s + getUnitPrice(e.caseType, e)*(parseFloat(e.quantity)||1); }, 0);
     var after3L = income > 0 ? Math.max(0, income - DEDUCT) : 0;
     var p70  = Math.round(after3L * 0.70);
     var p30  = Math.round(after3L * 0.30);
