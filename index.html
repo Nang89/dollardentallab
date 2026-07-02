@@ -2658,25 +2658,28 @@ function renderVoucherList() {
     return;
   }
 
+
+  const yr2digit = parseInt(voucherMonth.slice(2,4));
+  const fullYear = parseInt("20"+String(yr2digit).padStart(2,"0"));
+  if(fullYear > invoiceYear) {
+    invoiceCounter = 1000;
+    invoiceYear = fullYear;
+    localStorage.setItem("invoiceYear", invoiceYear);
+  }
+
   const html = doctors.map((d, i) => {
     const {sub} = calcVoucherTotal(d.entries, 0);
-        const cases = d.entries.length;
-        const isPaid = d.forcePaid;
-        const invKey = 'inv_'+voucherMonth.slice(0,4)+'_'+d.doctor.replace(/\s/g,'_');
-        let invNo = localStorage.getItem(invKey);
-        if(!invNo) {
-          const yr2digit = parseInt(voucherMonth.slice(2,4));
-          const fullYear = parseInt('20'+String(yr2digit).padStart(2,'0'));
-          if(fullYear > invoiceYear) {
-            invoiceCounter = 1000;
-            invoiceYear = fullYear;
-            localStorage.setItem('invoiceYear', invoiceYear);
-          }
-          invoiceCounter++;
-          invNo = invoiceCounter + '/' + String(yr2digit).padStart(2,'0');
-          localStorage.setItem(invKey, invNo);
-          localStorage.setItem('invoiceCounter', invoiceCounter);
-        }
+    const cases = d.entries.length;
+    const isPaid = d.forcePaid;
+    // Simple key: month + index position
+    const invKey = "inv_"+voucherMonth+"_"+i;
+    let invNo = localStorage.getItem(invKey);
+    if(!invNo) {
+      invoiceCounter++;
+      invNo = invoiceCounter+"/"+String(yr2digit).padStart(2,"0");
+      localStorage.setItem(invKey, invNo);
+      localStorage.setItem("invoiceCounter", invoiceCounter);
+    }
         const paidBadge = isPaid ? '<span class="vli-paid-badge">✓ PAID</span>' : '';
         const paidBtn = isPaid
           ? `<button class="vli-paid-btn unpaid-btn" onclick="event.stopPropagation();triggerUnpaid(${i})">Mark Unpaid</button>`
@@ -2760,7 +2763,7 @@ function openVoucher(idx) {
   const d = doctors[idx];
   if(!d) return;
 
-  const invKey = 'inv_'+voucherMonth.slice(0,4)+'_'+d.doctor.replace(/\s/g,'_');
+  const invKey = 'inv_'+voucherMonth+'_'+idx;
   let invNo = localStorage.getItem(invKey);
   if(!invNo) {
     const yr2digit = parseInt(voucherMonth.slice(2,4));
@@ -3117,22 +3120,15 @@ function buildMonthlyHTML(offset) {
     var rows = caseKeys.map(function(k,i){
       var pct = Math.round(caseMap[k]/maxUnits*100);
       var color = COLORS[i%COLORS.length];
-      var textOnBar = pct >= 40;
       return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
-+'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;">'+k+'</div>'
-+'<div style="flex:1;position:relative;background:#f0f4f8;border-radius:5px;height:26px;">'
-+'<div style="position:absolute;left:0;top:0;width:'+Math.max(5,pct)+'%;background:'+color+';height:100%;border-radius:5px;"></div>'
-+(textOnBar
-  ? '<div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;padding:0 10px;gap:12px;">'
-    +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+caseMap[k]+' units</span>'
-    +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
-    +'</div>'
-  : '<div style="position:absolute;left:'+(Math.max(5,pct)+2)+'%;top:0;height:100%;display:flex;align-items:center;gap:8px;">'
-    +'<span style="font-size:0.7rem;font-weight:700;color:#374151;white-space:nowrap;">'+caseMap[k]+' units</span>'
-    +'<span style="font-size:0.7rem;font-weight:700;color:#16a34a;white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
-    +'</div>'
-)
-+'</div></div>';
+        +'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;">'+k+'</div>'
+        +'<div style="flex:1;position:relative;background:#f0f4f8;border-radius:5px;height:26px;">'
+        +'<div style="position:absolute;left:0;top:0;width:'+Math.max(40,pct)+'%;background:'+color+';height:100%;border-radius:5px;"></div>'
+        +'<div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;padding:0 10px;gap:12px;">'
+        +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.5);white-space:nowrap;">'+caseMap[k]+' units</span>'
+        +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.5);white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
+        +'</div>'
+        +'</div></div>';
     }).join('');
 
     return '<div style="background:#e8f5ee;padding:8px 16px;border-bottom:1px solid #bbddd0;border-top:1px solid #e2e8f0;">'
@@ -3238,21 +3234,14 @@ function buildYearlyHTML(offset) {
     var rows = caseKeys.map(function(k,i){
       var pct = Math.round(caseMap[k]/maxUnits*100);
       var color = COLORS[i%COLORS.length];
-      var textOnBar = pct >= 40; // Only show text on bar if wide enough
       return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
         +'<div style="width:160px;font-size:0.73rem;color:var(--text);flex-shrink:0;">'+k+'</div>'
         +'<div style="flex:1;position:relative;background:#f0f4f8;border-radius:5px;height:26px;">'
-        +'<div style="position:absolute;left:0;top:0;width:'+Math.max(5,pct)+'%;background:'+color+';height:100%;border-radius:5px;"></div>'
-        +(textOnBar
-          ? '<div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;padding:0 10px;gap:12px;">'
-            +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+caseMap[k]+' units</span>'
-            +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.3);white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
-            +'</div>'
-          : '<div style="position:absolute;left:'+(Math.max(5,pct)+2)+'%;top:0;height:100%;display:flex;align-items:center;gap:8px;">'
-            +'<span style="font-size:0.7rem;font-weight:700;color:#374151;white-space:nowrap;">'+caseMap[k]+' units</span>'
-            +'<span style="font-size:0.7rem;font-weight:700;color:#16a34a;white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
-            +'</div>'
-        )
+        +'<div style="position:absolute;left:0;top:0;width:'+Math.max(40,pct)+'%;background:'+color+';height:100%;border-radius:5px;"></div>'
+        +'<div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;padding:0 10px;gap:12px;">'
+        +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.5);white-space:nowrap;">'+caseMap[k]+' units</span>'
+        +'<span style="font-size:0.7rem;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.5);white-space:nowrap;">'+fmtNum(feeMap[k])+' MMK</span>'
+        +'</div>'
         +'</div></div>';
     }).join('');
 
